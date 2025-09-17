@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 const auth = getAuth(app);
 
 interface UserContextType {
+  displayName: string;
   isAdmin: boolean;
   loading: boolean;
   userMembership: UserMembership | null;
@@ -17,11 +18,13 @@ export const UserContext = createContext<UserContextType>({
   isAdmin: false,
   loading: true,
   userMembership: null,
+  displayName: '',
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [displayName, setDisplayName] = useState('');
   const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
 
   useEffect(() => {
@@ -29,6 +32,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("Auth state changed. Current user:", user);
       if (user) {
         try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setDisplayName(userData.displayName || '');
+          }
           const userMembershipDocRef = doc(db, 'userMemberships', user.uid);
           const userMembershipDoc = await getDoc(userMembershipDocRef);
           if (userMembershipDoc.exists()) {
@@ -56,7 +65,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <UserContext.Provider value={{ isAdmin, loading, userMembership }}>
+    <UserContext.Provider value={{ displayName, isAdmin, loading, userMembership }}>
       {children}
     </UserContext.Provider>
   );

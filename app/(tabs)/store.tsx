@@ -5,9 +5,13 @@ import { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { db } from '../../FirebaseConfig';
+import branding from '../../constants/Branding';
 
-// Get screen width for carousel styling
-const { width } = Dimensions.get('window');
+// Get screen width and height for layout calculations
+const { width, height } = Dimensions.get('window');
+const numColumns = 3;
+const productMargin = 10;
+const itemWidth = (width - productMargin * (numColumns + 1)) / numColumns;
 
 // Define data types
 interface ProductData {
@@ -26,10 +30,15 @@ export default function StoreScreen() {
   useEffect(() => {
     const productsQuery = query(collection(db, 'products'));
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
-      const allProducts: ProductData[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ProductData[];
+      const allProducts: ProductData[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const imageUrl = data.imageUrl || '';
+        return {
+          id: doc.id,
+          ...data,
+          imageUrl,
+        };
+      }) as ProductData[];
       setProducts(allProducts);
     });
 
@@ -50,7 +59,7 @@ export default function StoreScreen() {
     <TouchableOpacity onPress={() => showModal(item)} style={styles.productItem}>
       <Card style={styles.productCard}>
         <Image
-          source={{ uri: item.imageUrl }}
+          source={item.imageUrl ? { uri: item.imageUrl } : branding.logo}
           style={styles.productImage}
           resizeMode="cover"
         />
@@ -61,6 +70,28 @@ export default function StoreScreen() {
       </Card>
     </TouchableOpacity>
   );
+  
+  // This function takes the products and groups them into pages of 9
+  const getPagedProducts = (products: ProductData[], itemsPerPage: number) => {
+    const pages = [];
+    for (let i = 0; i < products.length; i += itemsPerPage) {
+      pages.push(products.slice(i, i + itemsPerPage));
+    }
+    return pages;
+  };
+
+  const pagedProducts = getPagedProducts(products, 9);
+
+  const renderPage = ({ item: page }: { item: ProductData[] }) => (
+    <FlatList
+      data={page}
+      renderItem={renderProductItem}
+      keyExtractor={(item) => item.id}
+      numColumns={numColumns}
+      contentContainerStyle={styles.gridContainer}
+      scrollEnabled={false}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -68,11 +99,13 @@ export default function StoreScreen() {
       
       <FlatList
         horizontal
-        data={products}
-        renderItem={renderProductItem}
-        keyExtractor={item => item.id}
+        pagingEnabled
+        data={pagedProducts}
+        renderItem={renderPage}
+        keyExtractor={(_, index) => index.toString()}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.carouselContainer}
+        snapToInterval={width} // Snap to the width of the screen
+        decelerationRate="fast"
       />
 
       <Portal>
@@ -84,7 +117,7 @@ export default function StoreScreen() {
           {selectedProduct && (
             <Card>
               <Image
-                source={{ uri: selectedProduct.imageUrl }}
+                source={selectedProduct.imageUrl ? { uri: selectedProduct.imageUrl } : branding.logo}
                 style={styles.modalImage}
                 resizeMode="contain"
               />
@@ -105,7 +138,7 @@ export default function StoreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    padding: productMargin,
     backgroundColor: '#f5f5f5',
   },
   title: {
@@ -114,31 +147,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  carouselContainer: {
+  gridContainer: {
     paddingVertical: 10,
+    width: width - productMargin * 2, // Ensure the grid fits the screen width
   },
   productItem: {
-    width: width * 0.7, // Take up 70% of the screen width
-    marginHorizontal: 10,
+    width: itemWidth,
+    height: itemWidth * 1.5, // Adjust height based on width for better aspect ratio
+    margin: productMargin / 2,
   },
   productCard: {
     borderRadius: 8,
     overflow: 'hidden',
+    flex: 1,
   },
   productImage: {
     width: '100%',
-    height: 150,
+    height: '60%', // Image takes up 60% of the card height
   },
   productInfo: {
     padding: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   productName: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 12,
   },
   modalContent: {
     backgroundColor: 'white',

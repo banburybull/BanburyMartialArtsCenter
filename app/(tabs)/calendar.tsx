@@ -1,5 +1,5 @@
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
-import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Card, DataTable, Text, Button, Modal, Portal } from 'react-native-paper';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useEffect, useState } from 'react';
@@ -59,14 +59,14 @@ export default function CalendarScreen() {
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
+    // Listener for all classes
     const classesQuery = query(collection(db, 'classes'));
     const unsubscribeClasses = onSnapshot(classesQuery, (snapshot) => {
         const allClasses: ClassData[] = snapshot.docs.map(doc => {
             const data = doc.data();
-            // Assuming 'datetime' is stored in ISO format
-            const date = new Date(data.datetime);
-            const day = date.toISOString().split('T')[0]; // Gets 'YYYY-MM-DD'
-            const time = date.toTimeString().split(' ')[0].substring(0, 5); // Gets 'HH:mm'
+            const date = new Date(data.datetime.seconds * 1000 + (data.datetime.nanoseconds / 1000000));
+            const day = date.toISOString().split('T')[0];
+            const time = date.toTimeString().split(' ')[0].substring(0, 5);
 
             return {
             id: doc.id,
@@ -85,13 +85,17 @@ export default function CalendarScreen() {
         setMarkedDates(newMarkedDates);
     });
 
-    // Listener for user's checked-in classes
+    // Listener for user's checked-in classes from a single document
     let unsubscribeUserClasses: (() => void) | undefined;
     if (userId) {
-      const userClassesQuery = query(collection(db, 'userClasses', userId, 'checkedInClasses'));
-      unsubscribeUserClasses = onSnapshot(userClassesQuery, (snapshot) => {
-        const checkedInClasses = snapshot.docs.map(doc => doc.data().classId);
-        setUserClasses(checkedInClasses);
+      const userDocRef = doc(db, 'userClasses', userId);
+      unsubscribeUserClasses = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const checkedInClasses = docSnap.data().classes || [];
+          setUserClasses(checkedInClasses);
+        } else {
+          setUserClasses([]);
+        }
       });
     }
 
@@ -113,10 +117,10 @@ export default function CalendarScreen() {
       return;
     }
     try {
-      await setDoc(doc(db, 'userClasses', userId, 'checkedInClasses', classId), {
-        classId: classId,
-        checkInTime: new Date().toISOString(),
-      });
+      const userDocRef = doc(db, 'userClasses', userId);
+      await setDoc(userDocRef, {
+        classes: arrayUnion(classId),
+      }, { merge: true });
       Alert.alert('Success', 'You have successfully checked in.');
     } catch (error) {
       console.error('Error checking in:', error);
@@ -129,7 +133,10 @@ export default function CalendarScreen() {
       return;
     }
     try {
-      await deleteDoc(doc(db, 'userClasses', userId, 'checkedInClasses', classId));
+      const userDocRef = doc(db, 'userClasses', userId);
+      await setDoc(userDocRef, {
+        classes: arrayRemove(classId),
+      }, { merge: true });
       Alert.alert('Success', 'Check-in canceled.');
     } catch (error) {
       console.error('Error canceling check-in:', error);
@@ -173,43 +180,45 @@ export default function CalendarScreen() {
             <View>
               <Text style={styles.title}>Classes on {selectedDay}</Text>
               {classesForSelectedDay.length > 0 ? (
-                <DataTable>
-                  <DataTable.Header>
-                    <DataTable.Title>Time</DataTable.Title>
-                    <DataTable.Title>Name</DataTable.Title>
-                    <DataTable.Title>Actions</DataTable.Title>
-                  </DataTable.Header>
-                  {classesForSelectedDay.map((item) => {
-                    const isCheckedIn = userClasses.includes(item.id);
-                    return (
-                      <DataTable.Row key={item.id}>
-                        <DataTable.Cell>{item.time}</DataTable.Cell>
-                        <DataTable.Cell>{item.name}</DataTable.Cell>
-                        <DataTable.Cell style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          {isCheckedIn ? (
-                            <Button
-                              mode="contained"
-                              onPress={() => handleCancelCheckIn(item.id)}
-                              style={{ backgroundColor: 'red' }}
-                            >
-                              Cancel
-                            </Button>
-                          ) : (
-                            <Button
-                              mode="contained"
-                              onPress={() => handleCheckIn(item.id)}
-                            >
-                              Check In
-                            </Button>
-                          )}
-                          <TouchableOpacity onPress={() => showDescriptionModal(item)}>
-                            <FontAwesome name="info-circle" size={20} color="black" style={{ marginLeft: 15 }} />
-                          </TouchableOpacity>
-                        </DataTable.Cell>
-                      </DataTable.Row>
-                    );
-                  })}
-                </DataTable>
+              <DataTable>
+    <DataTable.Header>
+        <DataTable.Title style={{ flex: 1 }}>Time</DataTable.Title>
+        <DataTable.Title style={{ flex: 2 }}>Name</DataTable.Title>
+        <DataTable.Title style={{ flex: 1 }}>Actions</DataTable.Title>
+    </DataTable.Header>
+    {classesForSelectedDay.map((item) => {
+        const isCheckedIn = userClasses.includes(item.id);
+        return (
+            <DataTable.Row key={item.id}>
+                <DataTable.Cell style={{ flex: 1 }}>{item.time}</DataTable.Cell>
+                <DataTable.Cell style={{ flex: 2 }} onPress={() => showDescriptionModal(item)}>
+                    {item.name}
+                </DataTable.Cell>
+                <DataTable.Cell style={{ flex: 1, flexDirection: 'row' }}>
+                  {isCheckedIn ? (
+                      <Button
+                          mode="contained"
+                          onPress={() => handleCancelCheckIn(item.id)}
+                          style={{ backgroundColor: 'red', marginHorizontal: 0, paddingHorizontal: 0 }}
+                          compact
+                      >
+                          Cancel
+                      </Button>
+                  ) : (
+                      <Button
+                          mode="contained"
+                          onPress={() => handleCheckIn(item.id)}
+                          style={{ marginHorizontal: 0, paddingHorizontal: 0 }}
+                          compact
+                      >
+                          Check In
+                      </Button>
+                  )}
+              </DataTable.Cell>
+            </DataTable.Row>
+        );
+    })}
+</DataTable>
               ) : (
                 <Text style={styles.noClassesText}>No classes scheduled for this day.</Text>
               )}

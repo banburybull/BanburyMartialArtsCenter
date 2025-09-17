@@ -1,19 +1,15 @@
-// _layout.tsx
-
-import React, { useEffect, useState } from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs, router } from 'expo-router'; // Import router
+// (tabs)/_layout.tsx
+import React, { useEffect } from 'react';
+import { Tabs, router } from 'expo-router';
 import { Pressable, View, Text } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { getFirestore } from 'firebase/firestore';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useUser, UserProvider } from '../../context/userContext';
+import NotificationsIcon from '../../components/notificationsIcon';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-// Initialize Firebase
 import { app } from '../../FirebaseConfig';
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -26,8 +22,6 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <PaperProvider>
       <UserProvider>
@@ -39,7 +33,6 @@ export default function TabLayout() {
 
 function AppTabs() {
   const { isAdmin, loading, userMembership } = useUser();
-  const colorScheme = useColorScheme();
 
   // Redirect logic
   useEffect(() => {
@@ -63,20 +56,7 @@ function AppTabs() {
       options={{
         title: 'Home',
         tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-        headerRight: () => (
-          <Link href="/modal" asChild>
-            <Pressable>
-              {({ pressed }) => (
-                <FontAwesome
-                  name="info-circle"
-                  size={25}
-                  color={Colors[colorScheme ?? 'light'].text}
-                  style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                />
-              )}
-            </Pressable>
-          </Link>
-        ),
+        headerRight: () => <NotificationsIcon />, // Use the new component here
       }}
     />,
     <Tabs.Screen
@@ -113,7 +93,6 @@ function AppTabs() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: useClientOnlyValue(false, true),
       }}
     >

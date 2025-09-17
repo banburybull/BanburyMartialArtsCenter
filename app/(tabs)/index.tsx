@@ -1,64 +1,66 @@
-import { StyleSheet, View, Image} from 'react-native';
-import { auth, db } from '../../FirebaseConfig';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { Text, Card, Button } from 'react-native-paper';
-import Branding from '../../constants/Branding';
-import Colors from '../../constants/Colors';
+import { StyleSheet, View, Text, Image, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { Card } from 'react-native-paper';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import branding from '../../constants/Branding'; 
+
+// Import the useUser hook from your UserContext file
+import { useUser } from '../../context/userContext';
+
+import MemberDetails from '../userDashboardItems/memberDetails';
+import Classes from '../userDashboardItems/classes';
 
 export default function HomeScreen() {
-  const [userName, setUserName] = useState('User');
-  const [membershipDetails, setMembershipDetails] = useState('N/A');
-  const [upcomingClasses, setUpcomingClasses] = useState('N/A');
+  const [activeView, setActiveView] = useState<'dashboard' | 'memberDetails' | 'classes'>('dashboard');
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        router.replace('/login');
-      } else {
-        // Fetch user data from Firestore
-        try {
-          const docRef = doc(db, 'users', user.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setUserName(docSnap.data().name);
-            // You would fetch and set membership and classes here
-            // For now, these are hardcoded for demonstration
-            setMembershipDetails('Active: Gold Member');
-            setUpcomingClasses('BJJ - 8:00 PM, Wednesday');
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      }
-    });
+  // Use the useUser hook to access the context values
+  const { displayName, loading } = useUser();
+  const userName = displayName || 'Member';
 
-    return () => unsubscribe();
-  }, []);
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <Image source={branding.logo} style={styles.logo} />
+      {userName && <Text style={styles.welcomeText}>Welcome, {userName}!</Text>}
+    </View>
+  );
+
+  const renderDashboard = () => (
+    <View style={styles.dashboardContainer}>
+      <Card style={styles.tile} onPress={() => setActiveView('memberDetails')}>
+        <View style={styles.tileContent}>
+          <FontAwesome name="user-circle" size={40} color="#007bff" />
+          <Text style={styles.tileText}>Member Details</Text>
+        </View>
+      </Card>
+      <Card style={styles.tile} onPress={() => setActiveView('classes')}>
+        <View style={styles.tileContent}>
+          <FontAwesome name="calendar-check-o" size={40} color="#28a745" />
+          <Text style={styles.tileText}>My Classes</Text>
+        </View>
+      </Card>
+    </View>
+  );
+
+  const renderView = () => {
+    // Show a loading indicator while the user data is being fetched
+    if (loading) {
+      return <ActivityIndicator size="large" style={styles.loadingIndicator} />;
+    }
+
+    switch (activeView) {
+      case 'memberDetails':
+        return <MemberDetails onBack={() => setActiveView('dashboard')} />;
+      case 'classes':
+        return <Classes onBack={() => setActiveView('dashboard')} />;
+      default:
+        return renderDashboard();
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Image source={Branding.logo} style={styles.logo} />
-      <Text style={styles.welcomeText}>Welcome, {userName}</Text>
-
-      {/* User Details Section */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={styles.cardTitle}>Your Dashboard</Text>
-          <View style={styles.detailSection}>
-            <Text variant="titleMedium"  style={styles.subheading}>Membership Details:</Text>
-            <Text style={styles.detailText}>{membershipDetails}</Text>
-          </View>
-          <View style={styles.detailSection}>
-            <Text variant="titleMedium" style={styles.subheading}>Upcoming Classes:</Text>
-            <Text style={styles.detailText}>{upcomingClasses}</Text>
-          </View>
-        </Card.Content>
-      </Card>      
-      <Button mode="contained" onPress={() => auth.signOut()} style={styles.button}>
-        Sign Out
-      </Button>
+      {renderHeader()}
+      {renderView()}
     </View>
   );
 }
@@ -66,40 +68,54 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  headerContainer: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    resizeMode: 'contain',
-    marginBottom: 20,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  card: {
-    width: '100%',
     padding: 10,
     marginBottom: 20,
   },
-  cardTitle: {
-    textAlign: 'center',
-    marginBottom: 10,
+  logo: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
   },
-  detailSection: {
-    marginBottom: 15,
-  },
-  subheading: {
+  welcomeText: {
+    fontSize: 18,
     fontWeight: 'bold',
+    marginTop: 10,
   },
-  detailText: {
+  dashboardContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  tile: {
+    width: '45%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    marginBottom: 20,
+  },
+  tileContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tileText: {
+    marginTop: 10,
     fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  button: {
-    marginTop: 20,
+  loadingIndicator: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
