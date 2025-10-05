@@ -29,7 +29,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      console.log("Auth state changed. Current user:", user);
       if (user) {
         try {
           const userDocRef = doc(db, 'users', user.uid);

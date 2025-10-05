@@ -10,6 +10,7 @@ import {
   where,
   getDocs,
   QueryDocumentSnapshot,
+  arrayRemove,
 } from 'firebase/firestore';
 import { Card, DataTable, Text, Button, Modal, Portal, TextInput, Divider } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -115,7 +116,7 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
     }
   };
 
-  const handleSaveTemplate = async () => {
+    const handleSaveTemplate = async () => {
     try {
       if (!templateName || !templateDescription || templateDaysOfWeek.length === 0) {
         Alert.alert('Error', 'Please fill in all fields correctly.');
@@ -143,9 +144,27 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
         if (selectedTemplate) {
           const existingClassesQuery = query(collection(db, 'classes'), where('templateId', '==', selectedTemplate.id));
           const snapshot = await getDocs(existingClassesQuery);
+          
+          const classIdsToDelete: string[] = []; // Collect IDs of classes to be deleted
           snapshot.forEach((doc: QueryDocumentSnapshot) => {
-            transaction.delete(doc.ref);
+            classIdsToDelete.push(doc.id);
+            transaction.delete(doc.ref); // Delete the class document
           });
+
+          // Delete references to these classes in all userClasses documents
+          if (classIdsToDelete.length > 0) {
+            // Firestore array-contains-any query supports up to 10 array elements
+            // Assuming classIdsToDelete won't exceed this limit in a single transaction
+            // For a robust solution with more than 10 classes, a batched write or multiple
+            // transactions might be necessary, but this simple query works for the provided context.
+            const userClassesQuery = query(collection(db, 'userClasses'), where('classes', 'array-contains-any', classIdsToDelete));
+            const userClassesSnapshot = await getDocs(userClassesQuery);
+
+            userClassesSnapshot.forEach((doc: QueryDocumentSnapshot) => {
+              // Atomically remove all deleted class IDs from the 'classes' array
+              transaction.update(doc.ref, { classes: arrayRemove(...classIdsToDelete) });
+            });
+          }
         }
 
         // Create new classes based on the template

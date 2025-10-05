@@ -1,5 +1,5 @@
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
-import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction, where, getDocs } from 'firebase/firestore';
 import { Card, DataTable, Text, Button, Modal, Portal } from 'react-native-paper';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import { getAuth } from 'firebase/auth';
 
 import Colors from '@/constants/Colors';
 import { db, auth } from '../../FirebaseConfig';
+import { useUser } from '../../context/userContext'; // ASSUMING THIS PATH FOR useUser
 
 // Define the correct type for the date object from react-native-calendars
 interface CalendarDate {
@@ -49,12 +50,14 @@ LocaleConfig.locales['en'] = {
 LocaleConfig.defaultLocale = 'en';
 
 export default function CalendarScreen() {
+  const { isAdmin, loading: userLoading } = useUser(); // Added userLoading
   const [selectedDay, setSelectedDay] = useState('');
   const [markedDates, setMarkedDates] = useState<Record<string, MarkedDatesProps>>({});
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [userClasses, setUserClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isClassesLoading, setIsClassesLoading] = useState(true); // <-- NEW LOADING STATE
 
   const userId = auth.currentUser?.uid;
 
@@ -83,6 +86,7 @@ export default function CalendarScreen() {
             newMarkedDates[c.day] = { marked: true };
         });
         setMarkedDates(newMarkedDates);
+        setIsClassesLoading(false); // <-- Set loading to false once classes are loaded
     });
 
     // Listener for user's checked-in classes from a single document
@@ -144,6 +148,48 @@ export default function CalendarScreen() {
     }
   };
 
+  // Handle Admin Cancellation
+  const handleAdminCancelClass = async (classId: string, className: string) => {
+    if (!isAdmin) {
+        Alert.alert('Error', 'You do not have permission to cancel classes.');
+        return;
+    }
+
+    Alert.alert(
+        "Confirm Class Cancellation",
+        `Are you sure you want to cancel the class: ${className}? This will delete the class and remove all user check-ins.`,
+        [
+            { text: "No", style: "cancel" },
+            {
+                text: "Yes, Cancel",
+                onPress: async () => {
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            // 1. Delete the class document
+                            const classRef = doc(db, 'classes', classId);
+                            transaction.delete(classRef);
+                            
+                            // 2. Remove classId from all userClasses documents (check-ins)
+                            const userClassesQuery = query(collection(db, 'userClasses'), where('classes', 'array-contains', classId));
+                            const userClassesSnapshot = await getDocs(userClassesQuery);
+
+                            userClassesSnapshot.forEach((userDoc) => {
+                                transaction.update(userDoc.ref, { classes: arrayRemove(classId) });
+                            });
+                        });
+                        
+                        Alert.alert('Success', `${className} has been successfully cancelled and deleted.`);
+                    } catch (error) {
+                        console.error('Error canceling class:', error);
+                        Alert.alert('Error', 'Failed to cancel the class.');
+                    }
+                },
+                style: "destructive"
+            }
+        ]
+    );
+  };
+
   const showDescriptionModal = (classItem: ClassData) => {
     setSelectedClass(classItem);
     setIsModalVisible(true);
@@ -155,6 +201,9 @@ export default function CalendarScreen() {
   };
 
   const classesForSelectedDay = classes.filter(c => c.day === selectedDay);
+
+  // Combine loading states
+  const isContentLoading = isClassesLoading || userLoading;
 
   return (
     <View style={styles.container}>
@@ -179,22 +228,26 @@ export default function CalendarScreen() {
           {selectedDay ? (
             <View>
               <Text style={styles.title}>Classes on {selectedDay}</Text>
-              {classesForSelectedDay.length > 0 ? (
+              
+              {isContentLoading ? ( // <-- CHECK LOADING STATE HERE
+                  <Text style={styles.noClassesText}>Loading classes...</Text>
+              ) : classesForSelectedDay.length > 0 ? (
               <DataTable>
     <DataTable.Header>
-        <DataTable.Title style={{ flex: 1 }}>Time</DataTable.Title>
-        <DataTable.Title style={{ flex: 2 }}>Name</DataTable.Title>
-        <DataTable.Title style={{ flex: 1 }}>Actions</DataTable.Title>
+        <DataTable.Title style={{ flex: 0.8 }}>Time</DataTable.Title>
+        <DataTable.Title style={{ flex: 2.2 }}>Name</DataTable.Title>
+        <DataTable.Title style={{ flex: 3, justifyContent: 'flex-end' }}>Actions</DataTable.Title>
     </DataTable.Header>
     {classesForSelectedDay.map((item) => {
         const isCheckedIn = userClasses.includes(item.id);
         return (
             <DataTable.Row key={item.id}>
-                <DataTable.Cell style={{ flex: 1 }}>{item.time}</DataTable.Cell>
-                <DataTable.Cell style={{ flex: 2 }} onPress={() => showDescriptionModal(item)}>
+                <DataTable.Cell style={{ flex: 0.8 }}>{item.time}</DataTable.Cell>
+                <DataTable.Cell style={{ flex: 2.2 }} onPress={() => showDescriptionModal(item)}>
                     {item.name}
                 </DataTable.Cell>
-                <DataTable.Cell style={{ flex: 1, flexDirection: 'row' }}>
+                <DataTable.Cell style={{ flex: 3, ...styles.actionCell }}>                  
+                  {/* USER CHECK IN / CANCEL CHECK IN BUTTON */}
                   {isCheckedIn ? (
                       <Button
                           mode="contained"
@@ -212,6 +265,17 @@ export default function CalendarScreen() {
                           compact
                       >
                           Check In
+                      </Button>
+                  )}
+                  {/* ADMIN CANCEL BUTTON */}
+                  {isAdmin && (
+                      <Button
+                          mode="contained"
+                          onPress={() => handleAdminCancelClass(item.id, item.name)}
+                          style={{ backgroundColor: 'orange', marginLeft: 5 }} // Changed color for distinction and using marginLeft
+                          compact
+                      >
+                          Cancel
                       </Button>
                   )}
               </DataTable.Cell>
@@ -279,4 +343,10 @@ const styles = StyleSheet.create({
   modalButton: {
     marginTop: 10,
   },
+  // ADDED actionCell style for consistent button placement
+  actionCell: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end', // Pushes all buttons to the right
+    alignItems: 'center',
+  }
 });

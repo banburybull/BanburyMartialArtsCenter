@@ -16,7 +16,6 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
   await signInWithEmailAndPassword(auth, email, password);
-  console.log('User signed in successfully!');
   router.replace('/(tabs)');
 } catch (error) {
   console.error('Login failed:', error);
