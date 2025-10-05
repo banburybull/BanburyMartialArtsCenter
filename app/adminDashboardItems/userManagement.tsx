@@ -344,7 +344,6 @@ export default function UserManagement({ onBack }: UserManagementProps) {
       // 6. Generate CSV file content and Share
       // ... (sharing logic remains the same)
       const csvContent = csvRows.join('\n');
-      console.log('Generated CSV Content:\n', csvContent); // For debugging
       const fileName = `UserSummary_${shareRange.startDate}_to_${shareRange.endDate}.csv`;
       
       const fileUri = FileSystem.cacheDirectory + fileName;

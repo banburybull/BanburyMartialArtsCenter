@@ -1,31 +1,82 @@
 import { StyleSheet, View, Alert, ScrollView } from 'react-native';
-import { useState, useEffect } from 'react';
-import { Card, DataTable, Text, Button } from 'react-native-paper';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, DataTable, Text, Button, SegmentedButtons } from 'react-native-paper';
 import { auth, db } from '../../FirebaseConfig';
 import {
-  collection,
   doc,
   getDoc,
   onSnapshot,
   runTransaction,
-  arrayRemove,
 } from 'firebase/firestore';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+
+// Define a type for a single class item with date as a Date object for comparison
+interface ClassData {
+  id: string;
+  name: string;
+  time: string;
+  day: string; // Formatted date string
+  datetime: Date; // Actual Date object for sorting/filtering
+}
 
 interface ClassesProps {
   onBack: () => void;
 }
 
-interface ClassData {
-  id: string;
-  name: string;
-  time: string;
-  day: string;
+// --- Component for Rendering Class Lists (Future & Past) ---
+
+interface ClassListProps {
+    classes: ClassData[];
+    isFuture: boolean;
+    handleCheckout?: (classId: string) => Promise<void>;
 }
 
+const ClassList = ({ classes, isFuture, handleCheckout }: ClassListProps) => {
+    return (
+        <View style={styles.listContainer}>
+            {classes.length > 0 ? (
+                <DataTable>
+                    <DataTable.Header>
+                        <DataTable.Title>Date</DataTable.Title>
+                        <DataTable.Title>Time</DataTable.Title>
+                        <DataTable.Title>Name</DataTable.Title>
+                        {isFuture && <DataTable.Title style={{ justifyContent: 'flex-end' }}>Actions</DataTable.Title>}
+                    </DataTable.Header>
+                    {classes.map((item) => (
+                        <DataTable.Row key={item.id}>
+                            <DataTable.Cell>{item.day}</DataTable.Cell>
+                            <DataTable.Cell>{item.time}</DataTable.Cell>
+                            <DataTable.Cell>{item.name}</DataTable.Cell>
+                            {isFuture && handleCheckout && (
+                                <DataTable.Cell style={styles.actionCell}>
+                                    <Button
+                                        mode="contained"
+                                        onPress={() => handleCheckout(item.id)}
+                                        style={{ backgroundColor: 'red' }}
+                                        compact
+                                    >
+                                        Checkout
+                                    </Button>
+                                </DataTable.Cell>
+                            )}
+                        </DataTable.Row>
+                    ))}
+                </DataTable>
+            ) : (
+                <Text style={styles.emptyText}>
+                    {isFuture ? "You don't have any upcoming classes booked." : "No past classes found."}
+                </Text>
+            )}
+        </View>
+    );
+};
+
+// --- Main Classes Component ---
+
 export default function Classes({ onBack }: ClassesProps) {
-  const [userClasses, setUserClasses] = useState<ClassData[]>([]);
+  const [allUserClasses, setAllUserClasses] = useState<ClassData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'future' | 'past'>('future');
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
@@ -44,19 +95,23 @@ export default function Classes({ onBack }: ClassesProps) {
           const classDoc = await getDoc(classRef);
           if (classDoc.exists()) {
             const data = classDoc.data();
-            const date = new Date(data.datetime.seconds * 1000).toLocaleDateString();
-            const time = new Date(data.datetime.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Convert Firestore Timestamp to JavaScript Date
+            const classDate = new Date(data.datetime.seconds * 1000);
+            const dateStr = classDate.toLocaleDateString();
+            const timeStr = classDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
             classesData.push({
               id: classDoc.id,
               name: data.name,
-              time: time,
-              day: date,
+              time: timeStr,
+              day: dateStr,
+              datetime: classDate, // Store the Date object for filtering
             });
           }
         }
-        setUserClasses(classesData);
+        setAllUserClasses(classesData);
       } else {
-        setUserClasses([]);
+        setAllUserClasses([]);
       }
       setIsLoading(false);
     });
@@ -86,6 +141,21 @@ export default function Classes({ onBack }: ClassesProps) {
     }
   };
 
+  // Use useMemo to filter and sort the class data only when allUserClasses changes
+  const { futureClasses, pastClasses } = useMemo(() => {
+    const now = new Date();
+    const future = allUserClasses
+      .filter(c => c.datetime >= now)
+      .sort((a, b) => a.datetime.getTime() - b.datetime.getTime()); // Sort by soonest first
+
+    const past = allUserClasses
+      .filter(c => c.datetime < now)
+      .sort((a, b) => b.datetime.getTime() - a.datetime.getTime()); // Sort by most recent first
+      
+    return { futureClasses: future, pastClasses: past };
+  }, [allUserClasses]);
+
+
   return (
     <ScrollView style={styles.container}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
@@ -93,37 +163,43 @@ export default function Classes({ onBack }: ClassesProps) {
       </Button>
       <Card style={styles.card}>
         <Card.Title title="My Classes" />
-        <Card.Content>
+        <Card.Content style={styles.cardContent}>
           {isLoading ? (
-            <Text style={{ textAlign: 'center' }}>Loading...</Text>
-          ) : userClasses.length > 0 ? (
-            <DataTable>
-              <DataTable.Header>
-                <DataTable.Title>Date</DataTable.Title>
-                <DataTable.Title>Time</DataTable.Title>
-                <DataTable.Title>Name</DataTable.Title>
-                <DataTable.Title style={{ justifyContent: 'flex-end' }}>Actions</DataTable.Title>
-              </DataTable.Header>
-              {userClasses.map((item) => (
-                <DataTable.Row key={item.id}>
-                  <DataTable.Cell>{item.day}</DataTable.Cell>
-                  <DataTable.Cell>{item.time}</DataTable.Cell>
-                  <DataTable.Cell>{item.name}</DataTable.Cell>
-                  <DataTable.Cell style={styles.actionCell}>
-                    <Button
-                      mode="contained"
-                      onPress={() => handleCheckout(item.id)}
-                      style={{ backgroundColor: 'red' }}
-                      compact
-                    >
-                      Checkout
-                    </Button>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              ))}
-            </DataTable>
+            <Text style={styles.loadingText}>Loading...</Text>
           ) : (
-            <Text style={{ textAlign: 'center' }}>You are not checked into any classes.</Text>
+            <>
+              {/* Segmented Buttons for Tab Navigation */}
+              <View style={styles.segmentedButtonsContainer}>
+                <SegmentedButtons
+                  value={activeTab}
+                  onValueChange={(value) => setActiveTab(value as 'future' | 'past')}
+                  buttons={[
+                    {
+                      value: 'future',
+                      label: `Future (${futureClasses.length})`,
+                    },
+                    {
+                      value: 'past',
+                      label: `Past (${pastClasses.length})`,
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Conditional Rendering of Class List based on Active Tab */}
+              {activeTab === 'future' ? (
+                <ClassList
+                    classes={futureClasses}
+                    isFuture={true}
+                    handleCheckout={handleCheckout}
+                />
+              ) : (
+                <ClassList
+                    classes={pastClasses}
+                    isFuture={false}
+                />
+              )}
+            </>
           )}
         </Card.Content>
       </Card>
@@ -139,13 +215,31 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 20,
-    padding: 10,
+  },
+  cardContent: {
+    padding: 0, // Ensure no extra padding inside card content
   },
   backButton: {
     marginBottom: 10,
   },
+  segmentedButtonsContainer: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  listContainer: {
+    padding: 0, // DataTable handles its own padding
+  },
   actionCell: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  loadingText: {
+    textAlign: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    textAlign: 'center',
+    padding: 20,
   },
 });

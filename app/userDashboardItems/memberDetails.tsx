@@ -2,28 +2,52 @@ import { StyleSheet, View, Alert, TouchableOpacity, ScrollView } from 'react-nat
 import { useState, useEffect } from 'react';
 import { Card, Text, Button, TextInput } from 'react-native-paper';
 import { getAuth, updateProfile, updateEmail, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../FirebaseConfig';
+import { doc, setDoc } from 'firebase/firestore'; // Import Firestore functions
+import { auth, db } from '../../FirebaseConfig';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+
+// Import the useUser hook
+import { useUser } from '../../context/userContext'; 
 
 interface MemberDetailsProps {
   onBack: () => void;
 }
 
 export default function MemberDetails({ onBack }: MemberDetailsProps) {
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  // Destructure the necessary refresh function
+  const { displayName: contextDisplayName, refreshUserData } = useUser(); 
+  
+  const [displayName, setDisplayName] = useState(contextDisplayName || '');
+  const [email, setEmail] = useState(auth.currentUser?.email || '');
 
   useEffect(() => {
-    if (auth.currentUser) {
-      setDisplayName(auth.currentUser.displayName || '');
-      setEmail(auth.currentUser.email || '');
-    }
-  }, []);
+    // Sync local state with context/auth display name
+    // This ensures that if the name changes elsewhere (or on initial load), the input updates
+    setDisplayName(contextDisplayName || auth.currentUser?.displayName || '');
+    // Ensure email is correctly initialized from auth
+    setEmail(auth.currentUser?.email || '');
+  }, [contextDisplayName]); 
 
   const handleUpdateProfile = async () => {
     if (!auth.currentUser) return;
+
+    // Check if the name actually changed
+    if (displayName === auth.currentUser.displayName || displayName === contextDisplayName) {
+        Alert.alert('Info', 'Display name is already the same.');
+        return;
+    }
+
     try {
+      // 1. Update Firebase Auth Profile (Necessary for local user object)
       await updateProfile(auth.currentUser, { displayName: displayName });
+
+      // 2. Update Firestore 'users' document (Source of truth for context)
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(userDocRef, { displayName: displayName }, { merge: true });
+
+      // 3. Trigger context refresh
+      refreshUserData(); 
+
       Alert.alert('Success', 'Display name updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -34,6 +58,8 @@ export default function MemberDetails({ onBack }: MemberDetailsProps) {
   const handleChangeEmail = async () => {
     if (!auth.currentUser) return;
     try {
+      // Note: Firebase requires re-authentication for sensitive operations like email change.
+      // This is often why the API call fails.
       await updateEmail(auth.currentUser, email);
       Alert.alert('Success', 'Email updated successfully! Please verify your new email.');
     } catch (error) {

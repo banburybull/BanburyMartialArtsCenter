@@ -6,12 +6,17 @@ import { UserMembership } from '../constants/types';
 import { router } from 'expo-router';
 
 const auth = getAuth(app);
+const [refreshCount, setRefreshCount] = useState(0);
+const refreshUserData = () => {
+    setRefreshCount(prev => prev + 1);
+};
 
 interface UserContextType {
   displayName: string;
   isAdmin: boolean;
   loading: boolean;
   userMembership: UserMembership | null;
+  refreshUserData: () => void; 
 }
 
 export const UserContext = createContext<UserContextType>({
@@ -19,12 +24,14 @@ export const UserContext = createContext<UserContextType>({
   loading: true,
   userMembership: null,
   displayName: '',
+  refreshUserData: () => {},
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
+   const [refreshCount, setRefreshCount] = useState(0);
   const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
 
   useEffect(() => {
@@ -61,10 +68,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [refreshCount]);
 
   return (
-    <UserContext.Provider value={{ displayName, isAdmin, loading, userMembership }}>
+    <UserContext.Provider value={{ displayName, isAdmin, loading, userMembership, refreshUserData }}>
       {children}
     </UserContext.Provider>
   );
