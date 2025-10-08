@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
 import { useEffect, useState } from 'react';
 import { db } from '../../FirebaseConfig';
 import {
@@ -16,6 +16,11 @@ import { Card, DataTable, Text, Button, Modal, Portal, TextInput, Divider } from
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light; 
+const styles = getThemedStyles(currentThemeColors);
+
 interface ClassTemplatesProps {
   onBack: () => void;
 }
@@ -31,7 +36,7 @@ interface ClassTemplate {
 }
 
 export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
-  const [classTemplates, setClassTemplates] = useState<ClassTemplate[]>([]);
+const [classTemplates, setClassTemplates] = useState<ClassTemplate[]>([]);
   const [isTemplateModalVisible, setTemplateModalVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ClassTemplate | null>(null);
   const [templateName, setTemplateName] = useState('');
@@ -236,29 +241,29 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
   };
   
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
-      <Card style={styles.card}>
-        <Card.Title title="Class Templates" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Class Templates" />
         <Card.Content>
-          <Button onPress={() => showTemplateModal()} mode="contained" style={styles.addButton}>
+          <Button onPress={() => showTemplateModal()} mode="contained" style={[localStyles.addButton, { backgroundColor: currentThemeColors.tint }]}>
             Add New Template
           </Button>
           <DataTable>
             <DataTable.Header>
-              <DataTable.Title>Name</DataTable.Title>
-              <DataTable.Title>Days & Time</DataTable.Title>
-              <DataTable.Title style={{ justifyContent: 'flex-end' }}>Actions</DataTable.Title>
+              <DataTable.Title textStyle={styles.themedText}>Name</DataTable.Title>
+              <DataTable.Title textStyle={styles.themedText}>Days & Time</DataTable.Title>
+              <DataTable.Title style={{ justifyContent: 'flex-end' }} textStyle={styles.themedText}>Actions</DataTable.Title>
             </DataTable.Header>
             {classTemplates.map(template => (
               <DataTable.Row key={template.id}>
-                <DataTable.Cell>{template.name}</DataTable.Cell>
-                <DataTable.Cell>{template.dayOfWeek.join(', ')} @ {template.time}</DataTable.Cell>
+                <DataTable.Cell textStyle={styles.themedText}>{template.name}</DataTable.Cell>
+                <DataTable.Cell textStyle={styles.themedText}>{template.dayOfWeek.join(', ')} @ {template.time}</DataTable.Cell>
                 <DataTable.Cell style={styles.actionCell}>
                   <TouchableOpacity onPress={() => showTemplateModal(template)}>
-                    <FontAwesome name="pencil" size={20} color="black" style={{ marginRight: 15 }} />
+                    <FontAwesome name="pencil" size={20} color={currentThemeColors.tint} style={{ marginRight: 15 }} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteTemplate(template.id)}>
                     <FontAwesome name="trash" size={20} color="red" />
@@ -274,11 +279,11 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
         <Modal
           visible={isTemplateModalVisible}
           onDismiss={hideTemplateModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           <ScrollView>
-            <Card>
-              <Card.Title title={selectedTemplate ? 'Edit Class Template' : 'Create Class Template'} />
+            <Card style={styles.themedCard}>
+              <Card.Title titleStyle={styles.themedText} title={selectedTemplate ? 'Edit Class Template' : 'Create Class Template'} />
               <Card.Content>
                 <TextInput
                   label="Class Name"
@@ -294,12 +299,12 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
                   multiline
                 />
 
-                <Text style={styles.label}>Start Date</Text>
+                <Text style={[styles.themedText, localStyles.label]}>Start Date</Text>
                 <Button onPress={() => { setIsStartDatePicker(true); setShowDatePicker(true); }} mode="outlined">
                   {templateStartDate.toDateString()}
                 </Button>
-
-                <Text style={styles.label}>End Date</Text>
+                
+                <Text style={[styles.themedText, localStyles.label]}>End Date</Text>
                 <Button onPress={() => { setIsStartDatePicker(false); setShowDatePicker(true); }} mode="outlined">
                   {templateEndDate.toDateString()}
                 </Button>
@@ -313,7 +318,7 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
                   />
                 )}
 
-                <Text style={styles.label}>Time</Text>
+                <Text style={[styles.themedText, localStyles.label]}>Time</Text>
                 <Button onPress={() => setShowTimePicker(true)} mode="outlined">
                   {templateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Button>
@@ -326,14 +331,14 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
                   />
                 )}
                 
-                <Text style={styles.label}>Days of the Week</Text>
-                <View style={styles.dayButtonsContainer}>
+                <Text style={[styles.themedText, localStyles.label]}>Days of the Week</Text>
+                <View style={localStyles.dayButtonsContainer}>
                   {daysOfWeek.map((day) => (
                     <Button
                       key={day}
                       mode={templateDaysOfWeek.includes(day) ? 'contained' : 'outlined'}
                       onPress={() => handleToggleDay(day)}
-                      style={styles.dayButton}
+                      style={[localStyles.dayButton, templateDaysOfWeek.includes(day) && { backgroundColor: currentThemeColors.tint }]}
                     >
                       {day.substring(0, 3)}
                     </Button>
@@ -342,7 +347,7 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
 
                 <View style={styles.modalButtons}>
                   <Button onPress={hideTemplateModal} mode="outlined" style={{ marginRight: 10 }}>Cancel</Button>
-                  <Button onPress={handleSaveTemplate} mode="contained">Save</Button>
+                  <Button onPress={handleSaveTemplate} mode="contained" style={{ backgroundColor: currentThemeColors.tint }}>Save</Button>
                 </View>
               </Card.Content>
             </Card>
@@ -353,56 +358,14 @@ export default function ClassTemplates({ onBack }: ClassTemplatesProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 20,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
-    maxHeight: '80%',
-  },
-  pickerLabel: {
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 15,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-  },
-  actionCell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  divider: {
-    marginVertical: 20,
-  },
+// Local styles for component-specific layout
+const localStyles = StyleSheet.create({
   addButton: {
-    marginBottom: 10,
-  },
-  input: {
     marginBottom: 10,
   },
   label: {
     fontSize: 16,
-    color: '#666',
+    color: '#666', // Keep color specific to distinguish from theme-aware text
     marginTop: 10,
   },
   dayButtonsContainer: {
@@ -415,8 +378,5 @@ const styles = StyleSheet.create({
   dayButton: {
     margin: 4,
     minWidth: 50,
-  },
-  backButton: {
-    marginBottom: 10,
   },
 });

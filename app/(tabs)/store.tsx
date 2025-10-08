@@ -1,17 +1,22 @@
-import { StyleSheet, View, Alert, TouchableOpacity, FlatList, Image, Dimensions } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, FlatList, Image, Dimensions, useColorScheme } from 'react-native';
 import { getFirestore, collection, query, onSnapshot } from 'firebase/firestore';
 import { Card, Text, Button, Modal, Portal } from 'react-native-paper';
 import { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from '@/constants/Colors';
+
+// REMOVE: import Colors from '@/constants/Colors';
+// REMOVE: import branding from '../../constants/Branding';
 import { db } from '../../FirebaseConfig';
-import branding from '../../constants/Branding';
+import { getThemedStyles, AppBranding, AppColorsExport } from '../../constants/GlobalStyles';
 
 // Get screen width and height for layout calculations
 const { width, height } = Dimensions.get('window');
 const numColumns = 3;
 const productMargin = 10;
 const itemWidth = (width - productMargin * (numColumns + 1)) / numColumns;
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light; 
+const styles = getThemedStyles(currentThemeColors);
 
 // Define data types
 interface ProductData {
@@ -27,7 +32,7 @@ export default function StoreScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null);
 
-  useEffect(() => {
+ useEffect(() => {
     const productsQuery = query(collection(db, 'products'));
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
       const allProducts: ProductData[] = snapshot.docs.map(doc => {
@@ -59,13 +64,13 @@ export default function StoreScreen() {
     <TouchableOpacity onPress={() => showModal(item)} style={styles.productItem}>
       <Card style={styles.productCard}>
         <Image
-          source={item.imageUrl ? { uri: item.imageUrl } : branding.logo}
+          source={item.imageUrl ? { uri: item.imageUrl } : AppBranding.logo}
           style={styles.productImage}
           resizeMode="cover"
         />
         <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+          <Text style={styles.themedProductName}>{item.name}</Text>
+          <Text style={styles.themedProductPrice}>${item.price.toFixed(2)}</Text>
         </View>
       </Card>
     </TouchableOpacity>
@@ -88,14 +93,14 @@ export default function StoreScreen() {
       renderItem={renderProductItem}
       keyExtractor={(item) => item.id}
       numColumns={numColumns}
-      contentContainerStyle={styles.gridContainer}
+      contentContainerStyle={styles.storeGridContainer}
       scrollEnabled={false}
     />
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Our Products</Text>
+    <View style={styles.themedContainer}>
+      <Text style={styles.themedTitle}>Our Products</Text>
       
       <FlatList
         horizontal
@@ -104,7 +109,7 @@ export default function StoreScreen() {
         renderItem={renderPage}
         keyExtractor={(_, index) => index.toString()}
         showsHorizontalScrollIndicator={false}
-        snapToInterval={width} // Snap to the width of the screen
+        snapToInterval={width} 
         decelerationRate="fast"
       />
 
@@ -112,20 +117,20 @@ export default function StoreScreen() {
         <Modal
           visible={isModalVisible}
           onDismiss={hideModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           {selectedProduct && (
-            <Card>
+            <Card style={styles.themedCard}>
               <Image
-                source={selectedProduct.imageUrl ? { uri: selectedProduct.imageUrl } : branding.logo}
-                style={styles.modalImage}
+                source={selectedProduct.imageUrl ? { uri: selectedProduct.imageUrl } : AppBranding.logo}
+                style={localStyles.modalImage}
                 resizeMode="contain"
               />
-              <Card.Title title={selectedProduct.name} />
+              <Card.Title titleStyle={styles.themedText} title={selectedProduct.name} />
               <Card.Content>
-                <Text style={styles.modalDescription}>{selectedProduct.description}</Text>
-                <Text style={styles.modalPrice}>${selectedProduct.price.toFixed(2)}</Text>
-                <Button onPress={hideModal} mode="contained" style={styles.modalButton}>Close</Button>
+                <Text style={[styles.themedText, localStyles.modalDescription]}>{selectedProduct.description}</Text>
+                <Text style={[styles.themedText, localStyles.modalPrice]}>${selectedProduct.price.toFixed(2)}</Text>
+                <Button onPress={hideModal} mode="contained" style={styles.button}>Close</Button>
               </Card.Content>
             </Card>
           )}
@@ -135,56 +140,7 @@ export default function StoreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: productMargin,
-    backgroundColor: '#f5f5f5',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  gridContainer: {
-    paddingVertical: 10,
-    width: width - productMargin * 2, // Ensure the grid fits the screen width
-  },
-  productItem: {
-    width: itemWidth,
-    height: itemWidth * 1.5, // Adjust height based on width for better aspect ratio
-    margin: productMargin / 2,
-  },
-  productCard: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    flex: 1,
-  },
-  productImage: {
-    width: '100%',
-    height: '60%', // Image takes up 60% of the card height
-  },
-  productInfo: {
-    padding: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  productPrice: {
-    fontSize: 12,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
-  },
+const localStyles = StyleSheet.create({
   modalImage: {
     width: '100%',
     height: 200,
@@ -199,8 +155,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-  },
-  modalButton: {
-    marginTop: 10,
   },
 });

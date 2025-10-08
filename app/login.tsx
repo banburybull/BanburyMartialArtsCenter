@@ -1,13 +1,17 @@
-import { StyleSheet, View, Image, Alert } from 'react-native';
+import { StyleSheet, View, Image, Alert, useColorScheme, ScrollView } from 'react-native';
 import { Button, Card, TextInput } from 'react-native-paper';
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../FirebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../FirebaseConfig';
 import { router } from 'expo-router';
-import Branding from '../constants/Branding';
-import Colors from '../constants/Colors';
+// Import only GlobalStyles exports
+import { getThemedStyles, AppBranding, AppColorsExport } from '../constants/GlobalStyles'; 
 import { UserMembership } from '../constants/types';
+
+// Placeholder for theme colors (replace with actual theme logic)
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+
+const styles = getThemedStyles(currentThemeColors);
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -15,20 +19,23 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     try {
-  await signInWithEmailAndPassword(auth, email, password);
-  router.replace('/(tabs)');
-} catch (error) {
-  console.error('Login failed:', error);
-  Alert.alert('Login failed. Please check your credentials.');
-}
+      await signInWithEmailAndPassword(auth, email, password);
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Login failed:', error);
+      Alert.alert('Login failed. Please check your credentials.');
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+        style={styles.themedContainer}
+        contentContainerStyle={styles.scrollViewContent} 
+    >
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.logoContainer}>
-            <Image source={Branding.logo} style={styles.logo} />
+            <Image source={AppBranding.logo} style={styles.logo} />
           </View>
           <TextInput
             label="Email"
@@ -57,35 +64,6 @@ export default function LoginScreen() {
           </Button>
         </Card.Content>
       </Card>
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    padding: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logo: {
-    width: 150,
-    height: 150,
-    resizeMode: 'contain',
-  },
-  input: {
-    marginBottom: 15,
-  },
-  button: {
-    marginTop: 10,
-  },
-  textButton: {
-    marginTop: 10,
-  },
-});

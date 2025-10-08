@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert, ScrollView } from 'react-native';
+import { StyleSheet, View, Alert, ScrollView, useColorScheme } from 'react-native';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, DataTable, Text, Button, SegmentedButtons } from 'react-native-paper';
 import { auth, db } from '../../FirebaseConfig';
@@ -9,6 +9,11 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+const styles = getThemedStyles(currentThemeColors);
 
 // Define a type for a single class item with date as a Date object for comparison
 interface ClassData {
@@ -37,16 +42,16 @@ const ClassList = ({ classes, isFuture, handleCheckout }: ClassListProps) => {
             {classes.length > 0 ? (
                 <DataTable>
                     <DataTable.Header>
-                        <DataTable.Title>Date</DataTable.Title>
-                        <DataTable.Title>Time</DataTable.Title>
-                        <DataTable.Title>Name</DataTable.Title>
-                        {isFuture && <DataTable.Title style={{ justifyContent: 'flex-end' }}>Actions</DataTable.Title>}
+                        <DataTable.Title textStyle={styles.themedText}>Date</DataTable.Title>
+                        <DataTable.Title textStyle={styles.themedText}>Time</DataTable.Title>
+                        <DataTable.Title textStyle={styles.themedText}>Name</DataTable.Title>
+                        {isFuture && <DataTable.Title style={styles.actionCell} textStyle={styles.themedText}>Actions</DataTable.Title>}
                     </DataTable.Header>
                     {classes.map((item) => (
                         <DataTable.Row key={item.id}>
-                            <DataTable.Cell>{item.day}</DataTable.Cell>
-                            <DataTable.Cell>{item.time}</DataTable.Cell>
-                            <DataTable.Cell>{item.name}</DataTable.Cell>
+                            <DataTable.Cell textStyle={styles.themedText}>{item.day}</DataTable.Cell>
+                            <DataTable.Cell textStyle={styles.themedText}>{item.time}</DataTable.Cell>
+                            <DataTable.Cell textStyle={styles.themedText}>{item.name}</DataTable.Cell>
                             {isFuture && handleCheckout && (
                                 <DataTable.Cell style={styles.actionCell}>
                                     <Button
@@ -63,7 +68,7 @@ const ClassList = ({ classes, isFuture, handleCheckout }: ClassListProps) => {
                     ))}
                 </DataTable>
             ) : (
-                <Text style={styles.emptyText}>
+                <Text style={[styles.themedText, styles.centeredText]}>
                     {isFuture ? "You don't have any upcoming classes booked." : "No past classes found."}
                 </Text>
             )}
@@ -79,7 +84,7 @@ export default function Classes({ onBack }: ClassesProps) {
   const [activeTab, setActiveTab] = useState<'future' | 'past'>('future');
   const userId = auth.currentUser?.uid;
 
-  useEffect(() => {
+ useEffect(() => {
     if (!userId) {
       setIsLoading(false);
       return;
@@ -141,35 +146,36 @@ export default function Classes({ onBack }: ClassesProps) {
     }
   };
 
+
   // Use useMemo to filter and sort the class data only when allUserClasses changes
   const { futureClasses, pastClasses } = useMemo(() => {
     const now = new Date();
     const future = allUserClasses
       .filter(c => c.datetime >= now)
-      .sort((a, b) => a.datetime.getTime() - b.datetime.getTime()); // Sort by soonest first
+      .sort((a, b) => a.datetime.getTime() - b.datetime.getTime()); 
 
     const past = allUserClasses
       .filter(c => c.datetime < now)
-      .sort((a, b) => b.datetime.getTime() - a.datetime.getTime()); // Sort by most recent first
+      .sort((a, b) => b.datetime.getTime() - a.datetime.getTime()); 
       
     return { futureClasses: future, pastClasses: past };
   }, [allUserClasses]);
 
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
-      <Card style={styles.card}>
-        <Card.Title title="My Classes" />
-        <Card.Content style={styles.cardContent}>
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="My Classes" />
+        <Card.Content style={localStyles.cardContent}>
           {isLoading ? (
-            <Text style={styles.loadingText}>Loading...</Text>
+            <Text style={[styles.themedText, styles.centeredText]}>Loading...</Text>
           ) : (
             <>
               {/* Segmented Buttons for Tab Navigation */}
-              <View style={styles.segmentedButtonsContainer}>
+              <View style={styles.themedSegmentedButtonsContainer}>
                 <SegmentedButtons
                   value={activeTab}
                   onValueChange={(value) => setActiveTab(value as 'future' | 'past')}
@@ -207,39 +213,8 @@ export default function Classes({ onBack }: ClassesProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    marginBottom: 20,
-  },
+const localStyles = StyleSheet.create({
   cardContent: {
     padding: 0, // Ensure no extra padding inside card content
-  },
-  backButton: {
-    marginBottom: 10,
-  },
-  segmentedButtonsContainer: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  listContainer: {
-    padding: 0, // DataTable handles its own padding
-  },
-  actionCell: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  loadingText: {
-    textAlign: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    textAlign: 'center',
-    padding: 20,
   },
 });

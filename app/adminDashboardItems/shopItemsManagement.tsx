@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  useColorScheme,
 } from 'react-native';
 import { Card, Text, Button, TextInput, DataTable, Portal, Modal } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -19,7 +20,12 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { ShopItemProvider, useShopItems } from '../../context/ShopItemContext';
-import branding from '../../constants/Branding';
+
+// REMOVE: import branding from '../../constants/Branding';
+import { getThemedStyles, AppBranding, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+const styles = getThemedStyles(currentThemeColors);
 
 interface ShopItemManagementProps {
   onBack: () => void;
@@ -34,7 +40,7 @@ interface ProductData {
 }
 
 const ShopItemsManagement = ({ onBack }: ShopItemManagementProps) => {
-  const { createShopItem } = useShopItems();
+const { createShopItem } = useShopItems();
   const [productName, setProductName] = useState('');
   const [productDescription, setProductDescription] = useState('');
   const [productPrice, setProductPrice] = useState('');
@@ -120,13 +126,13 @@ const ShopItemsManagement = ({ onBack }: ShopItemManagementProps) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
 
-      <Card style={styles.card}>
-        <Card.Title title="Add New Shop Item" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Add New Shop Item" />
         <Card.Content>
           <TextInput
             label="Product Name"
@@ -154,28 +160,28 @@ const ShopItemsManagement = ({ onBack }: ShopItemManagementProps) => {
             onChangeText={setProductImageUrl}
             style={styles.input}
           />
-          <Button onPress={handleCreateProduct} mode="contained">
+          <Button onPress={handleCreateProduct} mode="contained" style={{ backgroundColor: currentThemeColors.tint }}>
             Add Product
           </Button>
         </Card.Content>
       </Card>
 
-      <Card style={styles.card}>
-        <Card.Title title="Existing Products" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Existing Products" />
         <Card.Content>
           <DataTable>
             <DataTable.Header>
-              <DataTable.Title>Name</DataTable.Title>
-              <DataTable.Title numeric>Price</DataTable.Title>
-              <DataTable.Title style={{ justifyContent: 'flex-end' }}>
+              <DataTable.Title textStyle={styles.themedText}>Name</DataTable.Title>
+              <DataTable.Title numeric textStyle={styles.themedText}>Price</DataTable.Title>
+              <DataTable.Title style={{ justifyContent: 'flex-end' }} textStyle={styles.themedText}>
                 Action
               </DataTable.Title>
             </DataTable.Header>
             {products.map((item) => (
               <TouchableOpacity key={item.id} onPress={() => showProductModal(item)}>
                 <DataTable.Row>
-                  <DataTable.Cell>{item.name}</DataTable.Cell>
-                  <DataTable.Cell numeric>${item.price.toFixed(2)}</DataTable.Cell>
+                  <DataTable.Cell textStyle={styles.themedText}>{item.name}</DataTable.Cell>
+                  <DataTable.Cell numeric textStyle={styles.themedText}>${item.price.toFixed(2)}</DataTable.Cell>
                   <DataTable.Cell style={styles.actionCell}>
                     <TouchableOpacity onPress={() => handleDeleteProduct(item.id)}>
                       <FontAwesome name="trash" size={20} color="red" />
@@ -193,25 +199,25 @@ const ShopItemsManagement = ({ onBack }: ShopItemManagementProps) => {
         <Modal
           visible={isProductModalVisible}
           onDismiss={hideProductModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           {selectedProduct && (
-            <Card>
+            <Card style={styles.themedCard}>
                <Image
-                source={selectedProduct.imageUrl ? { uri: selectedProduct.imageUrl } : branding.logo}
-                style={styles.modalImage}
+                source={selectedProduct.imageUrl ? { uri: selectedProduct.imageUrl } : AppBranding.logo}
+                style={localStyles.modalImage}
                 resizeMode="contain"
               />
-              <Card.Title title={selectedProduct.name} />
+              <Card.Title titleStyle={styles.themedText} title={selectedProduct.name} />
               <Card.Content>
-                <Text style={styles.modalDescription}>{selectedProduct.description}</Text>
-                <Text style={styles.modalPrice}>${selectedProduct.price.toFixed(2)}</Text>
-                <View style={styles.modalButtons}>
-                  <Button onPress={hideProductModal} mode="outlined" style={styles.modalButton}>Close</Button>
+                <Text style={[styles.themedText, localStyles.modalDescription]}>{selectedProduct.description}</Text>
+                <Text style={[styles.themedText, localStyles.modalPrice]}>${selectedProduct.price.toFixed(2)}</Text>
+                <View style={localStyles.modalButtons}>
+                  <Button onPress={hideProductModal} mode="outlined" style={localStyles.modalButton}>Close</Button>
                   <Button
                     onPress={() => handleDeleteProduct(selectedProduct.id)}
                     mode="contained"
-                    style={[styles.modalButton, { backgroundColor: 'red' }]}
+                    style={[localStyles.modalButton, { backgroundColor: 'red' }]}
                   >
                     Delete
                   </Button>
@@ -233,34 +239,8 @@ export default function ShopItemManagementWrapper(props: ShopItemManagementProps
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 20,
-  },
-  input: {
-    marginBottom: 10,
-  },
-  backButton: {
-    marginBottom: 10,
-  },
-  actionCell: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
-  },
+// Local styles for unique layout rules
+const localStyles = StyleSheet.create({
   modalImage: {
     width: '100%',
     height: 200,

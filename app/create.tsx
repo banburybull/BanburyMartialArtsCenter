@@ -1,13 +1,18 @@
-import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, useColorScheme, ScrollView } from 'react-native';
 import { Button, Card, TextInput, Text } from 'react-native-paper';
 import { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../FirebaseConfig';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Branding from '../constants/Branding';
 import { Image } from 'react-native';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
+// Import only GlobalStyles exports
+import { getThemedStyles, AppBranding, AppColorsExport } from '../constants/GlobalStyles'; 
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+
+const styles = getThemedStyles(currentThemeColors);
 
 export default function CreateAccountScreen() {
   const [email, setEmail] = useState('');
@@ -64,16 +69,19 @@ export default function CreateAccountScreen() {
   };
 
    return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.push('/login')} style={styles.closeButton}>
-        <Ionicons name="close-circle-outline" size={30} />
+     <ScrollView 
+        style={styles.themedContainer}
+        contentContainerStyle={styles.scrollViewContent}
+    >
+      <TouchableOpacity onPress={() => router.push('/login')} style={localStyles.closeButton}>
+        <Ionicons name="close-circle-outline" size={30} color={currentThemeColors.text} />
       </TouchableOpacity>
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.logoContainer}>
-            <Image source={Branding.logo} style={styles.logo} />
+            <Image source={AppBranding.logo} style={styles.logo} />
           </View>
-          <Text style={styles.title}>Create an Account</Text>
+          <Text style={styles.themedTitle}>Create an Account</Text>
           <TextInput
             label="Name"
             value={displayName}
@@ -117,49 +125,15 @@ export default function CreateAccountScreen() {
           </Button>
         </Card.Content>
       </Card>
-    </View>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    padding: 20,
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logo: {
-    width: 150,
-    height: 150,
-    resizeMode: 'contain',
-  },
-  input: {
-    marginBottom: 15,
-  },
-  button: {
-    marginTop: 10,
-  },
+const localStyles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     top: 50,
     right: 20,
     zIndex: 1,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginBottom: 5,
   },
 });

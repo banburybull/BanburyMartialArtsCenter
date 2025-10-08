@@ -1,10 +1,13 @@
-import { StyleSheet, View, Image } from 'react-native';
+import { StyleSheet, View, Image, useColorScheme } from 'react-native';
 import { Button, Card, Text } from 'react-native-paper';
-import { getAuth } from 'firebase/auth';
 import { auth } from '../FirebaseConfig';
-import Branding from '../constants/Branding';
-import Colors from '../constants/Colors';
 import { router } from 'expo-router';
+// Import only GlobalStyles exports
+import { getThemedStyles, AppBranding, AppColorsExport } from '../constants/GlobalStyles'; 
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+
+const styles = getThemedStyles(currentThemeColors);
 
 export default function NoMembershipScreen() {
   const handleSignOut = () => {
@@ -13,14 +16,14 @@ export default function NoMembershipScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.themedContainer}>
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.logoContainer}>
-            <Image source={Branding.logo} style={styles.logo} />
+            <Image source={AppBranding.logo} style={styles.logo} />
           </View>
-          <Text style={styles.title}>No Active Membership</Text>
-          <Text style={styles.message}>
+          <Text style={styles.themedTitle}>No Active Membership</Text>
+          <Text style={styles.themedMessage }>
             You do not have an active membership in the app. Please contact the administrator for assistance.
           </Text>
           <Button mode="contained" onPress={handleSignOut} style={styles.button}>
@@ -31,36 +34,3 @@ export default function NoMembershipScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    padding: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logo: {
-    width: 150,
-    height: 150,
-    resizeMode: 'contain',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  message: {
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  button: {
-    marginTop: 10,
-  },
-});

@@ -3,19 +3,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, db } from '../FirebaseConfig';
 import { UserMembership } from '../constants/types';
-import { router } from 'expo-router';
 
 const auth = getAuth(app);
-const [refreshCount, setRefreshCount] = useState(0);
-const refreshUserData = () => {
-    setRefreshCount(prev => prev + 1);
-};
 
 interface UserContextType {
   displayName: string;
   isAdmin: boolean;
   loading: boolean;
   userMembership: UserMembership | null;
+  needsMembershipRedirect: boolean; 
   refreshUserData: () => void; 
 }
 
@@ -24,6 +20,7 @@ export const UserContext = createContext<UserContextType>({
   loading: true,
   userMembership: null,
   displayName: '',
+  needsMembershipRedirect: false,
   refreshUserData: () => {},
 });
 
@@ -31,36 +28,43 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
-   const [refreshCount, setRefreshCount] = useState(0);
+  const [refreshCount, setRefreshCount] = useState(0); 
   const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
+  const [needsMembershipRedirect, setNeedsMembershipRedirect] = useState(false);
 
-  useEffect(() => {
+  const refreshUserData = () => {
+      setRefreshCount(prev => prev + 1);
+  };
+
+useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setNeedsMembershipRedirect(false); // Reset on every check
       if (user) {
         try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setDisplayName(userData.displayName || '');
-          }
+          // ... (existing logic to fetch displayName)
+          
           const userMembershipDocRef = doc(db, 'userMemberships', user.uid);
           const userMembershipDoc = await getDoc(userMembershipDocRef);
+          
           if (userMembershipDoc.exists()) {
+            // Success
             const membershipData = userMembershipDoc.data() as UserMembership;
             setUserMembership(membershipData);
             setIsAdmin(membershipData.membershipType === 'App Admin');
           } else {
-            router.replace('/no-membership');
+            // User logged in but HAS NO MEMBERSHIP DOCUMENT
+            setNeedsMembershipRedirect(true); // <--- FLAG THE STATE
             setUserMembership(null);
             setIsAdmin(false);
           }
         } catch (error) {
-            router.replace('/no-membership');
-          setUserMembership(null);
-          setIsAdmin(false);
+            // Failed to fetch or error occurred
+            setNeedsMembershipRedirect(true); // <--- FLAG THE STATE on error
+            setUserMembership(null);
+            setIsAdmin(false);
         }
       } else {
+        // User is logged out
         setUserMembership(null);
         setIsAdmin(false);
       }
@@ -71,7 +75,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   }, [refreshCount]);
 
   return (
-    <UserContext.Provider value={{ displayName, isAdmin, loading, userMembership, refreshUserData }}>
+    <UserContext.Provider value={{ displayName, isAdmin, loading, userMembership, needsMembershipRedirect, refreshUserData }}>
       {children}
     </UserContext.Provider>
   );

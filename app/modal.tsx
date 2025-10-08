@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, Alert, useColorScheme, ScrollView } from 'react-native'; 
 import { useState, useEffect } from 'react';
 import { DataTable, Card, Text, Button } from 'react-native-paper';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
@@ -7,7 +7,13 @@ import { View } from '@/components/Themed';
 import { db } from '../FirebaseConfig';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
+// 1. Import useRouter from expo-router
+import { useRouter } from 'expo-router';
 import { useNotifications } from '../context/notificationsContext'
+// Import only GlobalStyles exports
+import { getThemedStyles, AppColorsExport } from '../constants/GlobalStyles';
+// Import useSafeAreaInsets
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Assuming this is installed
 
 interface NotificationData {
   id: string;
@@ -17,8 +23,16 @@ interface NotificationData {
     toDate(): Date;
   };
 }
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+
+const globalStyles = getThemedStyles(currentThemeColors);
 
 export default function NotificationsScreen() {
+  // 2. Get the router object
+  const router = useRouter();
+  // 3. Get safe area insets
+  const insets = useSafeAreaInsets();
+
   const { dismissedNotificationIds, readNotificationIds, markAsRead, markAsDismissed } = useNotifications();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
@@ -84,6 +98,14 @@ export default function NotificationsScreen() {
           text: 'Dismiss',
           onPress: () => {
             markAsDismissed(notificationId);
+            
+            // FIX: Immediately filter the local notifications state 
+            // to ensure instantaneous removal from the view.
+            setNotifications(prevNotifications => 
+              prevNotifications.filter(notif => notif.id !== notificationId)
+            );
+            
+            // Remove from expanded list
             setExpandedIds(prevExpandedIds => prevExpandedIds.filter(id => id !== notificationId));
           },
           style: 'destructive',
@@ -93,9 +115,23 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Notifications</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
+    // Apply top inset padding here
+    <ScrollView style={[localStyles.container, { paddingTop: insets.top }]}>
+      
+      {/* Screen Title: Now at the top */}
+      <Text style={[globalStyles.themedTitle, localStyles.titleMargin]}>Notifications</Text> 
+      
+      {/* Back Button: Now below the title */}
+      <Button 
+        onPress={() => {
+          console.log("back pressed");
+          router.back()
+        }} 
+        mode="outlined" 
+        style={globalStyles.backButton}
+      >
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
+      </Button>
 
       {isLoading ? (
         <Text>Loading notifications...</Text>
@@ -116,7 +152,7 @@ export default function NotificationsScreen() {
             return (
               <View key={item.id}>
                 <TouchableOpacity onPress={() => handleToggleExpand(item)}>
-                  <DataTable.Row style={!isRead && styles.unreadRow}>
+                  <DataTable.Row style={!isRead && localStyles.unreadRow}>
                     <DataTable.Cell>
                       {isRead ? <FontAwesome name="check-circle" color="green" /> : <FontAwesome name="bell" color="orange" />}
                     </DataTable.Cell>
@@ -132,7 +168,7 @@ export default function NotificationsScreen() {
                   </DataTable.Row>
                 </TouchableOpacity>
                 {isExpanded && (
-                  <View style={styles.expandedContent}>
+                  <View style={localStyles.expandedContent}>
                     <Text>{item.body}</Text>
                   </View>
                 )}
@@ -143,25 +179,15 @@ export default function NotificationsScreen() {
       )}
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-    </View>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const localStyles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  separator: {
-    marginVertical: 10,
-    height: 1,
-    width: '100%',
+    // Removed explicit paddingTop here, now handled by insets.top
   },
   unreadRow: {
     backgroundColor: 'rgba(0, 122, 255, 0.1)',
@@ -172,4 +198,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
   },
+  titleMargin: { 
+    marginBottom: 10,
+    // marginTop is no longer needed since safe area insets handle top spacing
+  }
 });

@@ -20,9 +20,11 @@
     "@react-native-picker/picker": "^2.11.2",
     "@react-navigation/native": "^7.1.6",
     "expo": "~53.0.22",
+    "expo-file-system": "~18.1.11",
     "expo-font": "~13.3.2",
     "expo-linking": "~7.1.7",
     "expo-router": "~5.1.5",
+    "expo-sharing": "~13.1.5",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.11",
@@ -34,12 +36,11 @@
     "react-native-calendars": "^1.1313.0",
     "react-native-modal": "^14.0.0-rc.1",
     "react-native-paper": "^5.14.5",
+    "react-native-popup-menu": "^0.18.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-web": "~0.20.0",
-    "expo-sharing": "~13.1.5",
-    "expo-file-system": "~18.1.11"
+    "react-native-web": "~0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -1,12 +1,17 @@
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
 import { useState } from 'react';
-import { Card, Divider } from 'react-native-paper';
+import { Card } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import UserManagement from '../adminDashboardItems/userManagement';
 import ClassTemplates from '../adminDashboardItems/classTemplates';
 import NotificationManagement from '../adminDashboardItems/notificationManagement';
 import ShopItemsManagement from '../adminDashboardItems/shopItemsManagement';
+
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light; 
+const styles = getThemedStyles(currentThemeColors);
 
 export default function AdminScreen() {
   const [activeView, setActiveView] = useState<'dashboard' | 'users' | 'templates' | 'notifications' | 'shopItems'>('dashboard');
@@ -15,26 +20,26 @@ export default function AdminScreen() {
     <View style={styles.dashboardContainer}>
       <Card style={styles.tile} onPress={() => setActiveView('users')}>
         <View style={styles.tileContent}>
-          <FontAwesome name="users" size={40} color="#007bff" />
-          <Text style={styles.tileText}>User Management</Text>
+          <FontAwesome name="users" size={40} color={currentThemeColors.tint} />
+          <Text style={styles.themedTileText}>User Management</Text>
         </View>
       </Card>
       <Card style={styles.tile} onPress={() => setActiveView('templates')}>
         <View style={styles.tileContent}>
-          <FontAwesome name="calendar" size={40} color="#28a745" />
-          <Text style={styles.tileText}>Class Templates</Text>
+          <FontAwesome name="calendar" size={40} color={currentThemeColors.tint} />
+          <Text style={styles.themedTileText}>Class Templates</Text>
         </View>
       </Card>
       <Card style={styles.tile} onPress={() => setActiveView('notifications')}>
         <View style={styles.tileContent}>
-          <FontAwesome name="bell" size={40} color="#ffc107" />
-          <Text style={styles.tileText}>Notifications</Text>
+          <FontAwesome name="bell" size={40} color={currentThemeColors.tint} />
+          <Text style={styles.themedTileText}>Notifications</Text>
         </View>
       </Card>
       <Card style={styles.tile} onPress={() => setActiveView('shopItems')}>
         <View style={styles.tileContent}>
-          <FontAwesome name="shopping-bag" size={40} color="#6c757d" />
-          <Text style={styles.tileText}>Shop Items</Text>
+          <FontAwesome name="shopping-bag" size={40} color={currentThemeColors.tint} />
+          <Text style={styles.themedTileText}>Shop Items</Text>
         </View>
       </Card>
     </View>
@@ -43,6 +48,7 @@ export default function AdminScreen() {
   const renderView = () => {
     switch (activeView) {
       case 'users':
+        // Pass theme colors down if needed, but components should handle their own theme
         return <UserManagement onBack={() => setActiveView('dashboard')} />;
       case 'templates':
         return <ClassTemplates onBack={() => setActiveView('dashboard')} />;
@@ -56,9 +62,9 @@ export default function AdminScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Title title="Admin Dashboard" />
+    <ScrollView style={styles.themedContainer}>
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Admin Dashboard" />
         <Card.Content>
           {renderView()}
         </Card.Content>
@@ -67,40 +73,13 @@ export default function AdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 20,
-  },
+// Local styles are only used to override or define unique dashboard layout rules
+const localStyles = StyleSheet.create({
   dashboardContainer: {
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-around',
     alignItems: 'center',
-  },
-  tile: {
-    width: '45%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-    marginBottom: 20,
-  },
-  tileContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tileText: {
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
 });

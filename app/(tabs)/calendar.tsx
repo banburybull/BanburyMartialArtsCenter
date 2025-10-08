@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, useColorScheme } from 'react-native';
 import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction, where, getDocs } from 'firebase/firestore';
 import { Card, DataTable, Text, Button, Modal, Portal } from 'react-native-paper';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
@@ -6,11 +6,11 @@ import { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getAuth } from 'firebase/auth';
 
-import Colors from '@/constants/Colors';
+// REMOVE: import Colors from '@/constants/Colors';
 import { db, auth } from '../../FirebaseConfig';
-import { useUser } from '../../context/userContext'; // ASSUMING THIS PATH FOR useUser
+import { useUser } from '../../context/userContext'; 
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
 
-// Define the correct type for the date object from react-native-calendars
 interface CalendarDate {
   year: number;
   month: number;
@@ -48,6 +48,8 @@ LocaleConfig.locales['en'] = {
   today: 'Today'
 };
 LocaleConfig.defaultLocale = 'en';
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+const styles = getThemedStyles(currentThemeColors);
 
 export default function CalendarScreen() {
   const { isAdmin, loading: userLoading } = useUser(); // Added userLoading
@@ -202,52 +204,64 @@ export default function CalendarScreen() {
 
   const classesForSelectedDay = classes.filter(c => c.day === selectedDay);
 
-  // Combine loading states
   const isContentLoading = isClassesLoading || userLoading;
 
   return (
-    <View style={styles.container}>
-      <Card style={styles.card}>
+    <View style={styles.themedContainer}>
+      <Card style={styles.themedCard}>
         <Card.Content>
+          {/* Calendar component uses its own styling for day/text, but background/tint can be styled */}
           <Calendar
-            onDayPress={handleDayPress}
+           onDayPress={handleDayPress}
             markedDates={{
               ...markedDates,
               [selectedDay]: {
                 selected: true,
                 marked: markedDates[selectedDay]?.marked || false,
                 dotColor: markedDates[selectedDay]?.dotColor || 'white',
-              },
+              },}}
+            theme={{
+              backgroundColor: currentThemeColors.background,
+              calendarBackground: currentThemeColors.background,
+              textSectionTitleColor: currentThemeColors.tint,
+              dayTextColor: currentThemeColors.text,
+              selectedDayBackgroundColor: currentThemeColors.tint,
+              selectedDayTextColor: currentThemeColors.background,
+              todayTextColor: 'red',
             }}
           />
         </Card.Content>
       </Card>
 
-      <Card style={styles.card}>
+      <Card style={styles.themedCard}>
         <Card.Content>
           {selectedDay ? (
             <View>
-              <Text style={styles.title}>Classes on {selectedDay}</Text>
+              <Text style={localStyles.title}>Classes on {selectedDay}</Text>
               
-              {isContentLoading ? ( // <-- CHECK LOADING STATE HERE
-                  <Text style={styles.noClassesText}>Loading classes...</Text>
+              {isContentLoading ? ( 
+                  <Text style={localStyles.noClassesText}>Loading classes...</Text>
               ) : classesForSelectedDay.length > 0 ? (
               <DataTable>
     <DataTable.Header>
-        <DataTable.Title style={{ flex: 0.8 }}>Time</DataTable.Title>
-        <DataTable.Title style={{ flex: 2.2 }}>Name</DataTable.Title>
-        <DataTable.Title style={{ flex: 3, justifyContent: 'flex-end' }}>Actions</DataTable.Title>
+        <DataTable.Title style={{ flex: 0.8 }} textStyle={styles.themedText}>Time</DataTable.Title>
+        <DataTable.Title style={{ flex: 2.2 }} textStyle={styles.themedText}>Name</DataTable.Title>
+        <DataTable.Title style={{ flex: 3, justifyContent: 'flex-end' }} textStyle={styles.themedText}>Actions</DataTable.Title>
     </DataTable.Header>
     {classesForSelectedDay.map((item) => {
         const isCheckedIn = userClasses.includes(item.id);
         return (
             <DataTable.Row key={item.id}>
-                <DataTable.Cell style={{ flex: 0.8 }}>{item.time}</DataTable.Cell>
-                <DataTable.Cell style={{ flex: 2.2 }} onPress={() => showDescriptionModal(item)}>
+                <DataTable.Cell style={{ flex: 0.8 }} textStyle={styles.themedText}>{item.time}</DataTable.Cell>
+                <DataTable.Cell 
+                    style={{ flex: 2.2 }} 
+                    textStyle={styles.themedText}
+                    onPress={() => showDescriptionModal(item)}
+                >
                     {item.name}
                 </DataTable.Cell>
                 <DataTable.Cell style={{ flex: 3, ...styles.actionCell }}>                  
-                  {/* USER CHECK IN / CANCEL CHECK IN BUTTON */}
+                  {/* USER CHECK IN / CANCEL CHECK IN BUTTONS */}
                   {isCheckedIn ? (
                       <Button
                           mode="contained"
@@ -261,7 +275,7 @@ export default function CalendarScreen() {
                       <Button
                           mode="contained"
                           onPress={() => handleCheckIn(item.id)}
-                          style={{ marginHorizontal: 0, paddingHorizontal: 0 }}
+                          style={{ backgroundColor: currentThemeColors.tint, marginHorizontal: 0, paddingHorizontal: 0 }}
                           compact
                       >
                           Check In
@@ -272,7 +286,7 @@ export default function CalendarScreen() {
                       <Button
                           mode="contained"
                           onPress={() => handleAdminCancelClass(item.id, item.name)}
-                          style={{ backgroundColor: 'orange', marginLeft: 5 }} // Changed color for distinction and using marginLeft
+                          style={{ backgroundColor: 'orange', marginLeft: 5 }} 
                           compact
                       >
                           Cancel
@@ -284,24 +298,24 @@ export default function CalendarScreen() {
     })}
 </DataTable>
               ) : (
-                <Text style={styles.noClassesText}>No classes scheduled for this day.</Text>
+                <Text style={localStyles.noClassesText}>No classes scheduled for this day.</Text>
               )}
             </View>
           ) : (
-            <Text style={styles.noClassesText}>Select a day to view classes.</Text>
+            <Text style={localStyles.noClassesText}>Select a day to view classes.</Text>
           )}
         </Card.Content>
       </Card>
       
       <Portal>
-        <Modal visible={isModalVisible} onDismiss={hideDescriptionModal} contentContainerStyle={styles.modalContent}>
+        <Modal visible={isModalVisible} onDismiss={hideDescriptionModal} contentContainerStyle={styles.themedModalContent}>
           {selectedClass && (
             <Card>
-              <Card.Title title={selectedClass.name} />
+              <Card.Title titleStyle={styles.themedText} title={selectedClass.name} />
               <Card.Content>
-                <Text>Time: {selectedClass.time}</Text>
-                <Text style={styles.modalDescription}>{selectedClass.description}</Text>
-                <Button onPress={hideDescriptionModal} mode="contained" style={styles.modalButton}>Close</Button>
+                <Text style={styles.themedText}>Time: {selectedClass.time}</Text>
+                <Text style={[styles.themedText, localStyles.modalDescription]}>{selectedClass.description}</Text>
+                <Button onPress={hideDescriptionModal} mode="contained" style={[localStyles.modalButton, { backgroundColor: currentThemeColors.tint }]}>Close</Button>
               </Card.Content>
             </Card>
           )}
@@ -311,15 +325,8 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    marginBottom: 20,
-  },
+// Local styles for unique Calendar component styles
+const localStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -330,12 +337,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#666',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
-  },
   modalDescription: {
     marginTop: 10,
     marginBottom: 20,
@@ -343,10 +344,9 @@ const styles = StyleSheet.create({
   modalButton: {
     marginTop: 10,
   },
-  // ADDED actionCell style for consistent button placement
   actionCell: {
     flexDirection: 'row',
-    justifyContent: 'flex-end', // Pushes all buttons to the right
+    justifyContent: 'flex-end', 
     alignItems: 'center',
   }
 });

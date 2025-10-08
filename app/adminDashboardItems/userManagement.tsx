@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
 import { useEffect, useState } from 'react';
 import { getAuth } from 'firebase/auth';
 import { auth, db } from '../../FirebaseConfig';
@@ -16,12 +16,14 @@ import {
 import { Card, DataTable, Text, Button, Modal, Portal, TextInput, Divider } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-
-// ASSUMED IMPORTS FOR SHARING - These must be installed via 'npx expo install expo-sharing expo-file-system'
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
 import { UserProfile, UserMembership } from '../../constants/types';
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+const styles = getThemedStyles(currentThemeColors);
 
 interface UserManagementProps {
   onBack: () => void;
@@ -41,13 +43,16 @@ interface ShareRange {
 }
 
 export default function UserManagement({ onBack }: UserManagementProps) {
-  const [users, setUsers] = useState<UserProfile[]>([]);
+ const [users, setUsers] = useState<UserProfile[]>([]);
   const [memberships, setMemberships] = useState<{ id: string, name: string }[]>([{ id: 'no-membership', name: 'No Membership' }]);
   const [classTemplates, setClassTemplates] = useState<{ [key: string]: string }>({}); // Store template ID to Name mapping
 
   const [isUserModalVisible, setUserModalVisible] = useState(false);
   const [isClassesModalVisible, setClassesModalVisible] = useState(false);
   const [isShareModalVisible, setShareModalVisible] = useState(false); // <-- NEW STATE for Share Modal
+  // *** START CHANGE: New state to control if we are showing the membership edit fields ***
+  const [isEditingMembership, setIsEditingMembership] = useState(false);
+  // *** END CHANGE ***
 
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [modalMembershipType, setModalMembershipType] = useState<string>('no-membership');
@@ -136,18 +141,24 @@ export default function UserManagement({ onBack }: UserManagementProps) {
   // Modal handlers 
   const showUserModal = (user: UserProfile) => {
     setSelectedUser(user);
+    // Find the membership name or default to 'no-membership'
     const foundMembership = memberships.find(m => m.id === user.membershipType);
     setModalMembershipType(foundMembership ? foundMembership.id : 'no-membership');
+    setIsEditingMembership(false); // Reset editing state
     setUserModalVisible(true);
   };
 
   const hideUserModal = () => {
     setUserModalVisible(false);
     setSelectedUser(null);
+    setIsEditingMembership(false); // Ensure reset on close
   };
 
   const showClassesModal = async (user: UserProfile) => {
     setSelectedUser(user);
+    // *** START CHANGE: Hide User Modal before showing Classes Modal ***
+    setUserModalVisible(false); 
+    // *** END CHANGE ***
     try {
       const userClassesRef = doc(db, 'userClasses', user.uid);
       const userClassesDoc = await getDoc(userClassesRef);
@@ -183,7 +194,7 @@ export default function UserManagement({ onBack }: UserManagementProps) {
 
   const hideClassesModal = () => {
     setClassesModalVisible(false);
-    setSelectedUser(null);
+    setSelectedUser(null); // Keep selectedUser null to prevent accidentally showing user modal with old data
     setUserClasses([]);
   };
 
@@ -218,6 +229,13 @@ export default function UserManagement({ onBack }: UserManagementProps) {
       Alert.alert('Error', 'Failed to update membership.');
     }
   };
+  
+  // *** START CHANGE: Wrapper function for delete to call hideUserModal if successful ***
+  const handleDeleteUserWrapper = (userToDelete: UserProfile) => {
+    hideUserModal(); // Close the modal immediately
+    handleDeleteUser(userToDelete);
+  }
+  // *** END CHANGE ***
 
   const handleDeleteUser = (userToDelete: UserProfile) => {
     Alert.alert(
@@ -342,7 +360,6 @@ export default function UserManagement({ onBack }: UserManagementProps) {
       }
 
       // 6. Generate CSV file content and Share
-      // ... (sharing logic remains the same)
       const csvContent = csvRows.join('\n');
       const fileName = `UserSummary_${shareRange.startDate}_to_${shareRange.endDate}.csv`;
       
@@ -364,43 +381,47 @@ export default function UserManagement({ onBack }: UserManagementProps) {
       setIsSharing(false);
     }
   };
-
   
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
-      <Card style={styles.card}>
-        <Card.Title title="User Management" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="User Management" />
         <Card.Content>
-          <Button onPress={showShareModal} mode="contained" style={{ marginBottom: 15 }} disabled={isLoading || isSharing}>
+          <Button onPress={showShareModal} mode="contained" style={localStyles.shareButton} disabled={isLoading || isSharing}>
             {isSharing ? 'Generating...' : 'Share Class Summary'}
           </Button>
           {isLoading ? (
-            <Text style={{ textAlign: 'center' }}>Loading...</Text>
+            <Text style={styles.themedText}>Loading...</Text>
           ) : (
             <DataTable>
               <DataTable.Header>
-                <DataTable.Title>Name</DataTable.Title>
-                <DataTable.Title>Email</DataTable.Title>
-                <DataTable.Title style={{ justifyContent: 'flex-end' }}>Actions</DataTable.Title>
+                <DataTable.Title textStyle={styles.themedText}>Name</DataTable.Title>
+                <DataTable.Title textStyle={styles.themedText}>Email</DataTable.Title>
+                {/* *** START CHANGE: Removed Actions header *** */}
+                {/* <DataTable.Title style={{ justifyContent: 'flex-end' }} textStyle={styles.themedText}>Actions</DataTable.Title> */}
+                {/* *** END CHANGE *** */}
               </DataTable.Header>
               {users.map((user) => (
-                <DataTable.Row key={user.uid}>
-                  <DataTable.Cell>{user.name}</DataTable.Cell>
-                  <DataTable.Cell>{user.email}</DataTable.Cell>
-                  <DataTable.Cell style={styles.actionCell}>
+                // *** START CHANGE: Made the entire row clickable to show user modal ***
+                <DataTable.Row key={user.uid} onPress={() => showUserModal(user)}>
+                  <DataTable.Cell textStyle={styles.themedText}>{user.name}</DataTable.Cell>
+                  <DataTable.Cell textStyle={styles.themedText}>{user.email}</DataTable.Cell>
+                  {/* *** START CHANGE: Removed the action cells *** */}
+                  {/* <DataTable.Cell style={styles.actionCell}>
                     <TouchableOpacity onPress={() => showClassesModal(user)}>
-                      <FontAwesome name="calendar" size={20} color="black" style={{ marginRight: 15 }} />
+                      <FontAwesome name="calendar" size={20} color={currentThemeColors.tint} style={{ marginRight: 15 }} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => showUserModal(user)}>
-                      <FontAwesome name="pencil" size={20} color="black" style={{ marginRight: 15 }} />
+                      <FontAwesome name="pencil" size={20} color={currentThemeColors.tint} style={{ marginRight: 15 }} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteUser(user)}>
                       <FontAwesome name="trash" size={20} color="red" />
                     </TouchableOpacity>
-                  </DataTable.Cell>
+                  </DataTable.Cell> */}
+                  {/* *** END CHANGE *** */}
                 </DataTable.Row>
               ))}
             </DataTable>
@@ -408,68 +429,131 @@ export default function UserManagement({ onBack }: UserManagementProps) {
         </Card.Content>
       </Card>
 
-      {/* Edit User Modal (omitted for brevity) */}
+      {/* User Details & Actions Modal (Replaces Edit User Modal) */}
       <Portal>
         <Modal
           visible={isUserModalVisible}
           onDismiss={hideUserModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           {selectedUser && (
-            <Card>
-              <Card.Title title="Edit User Membership" />
+            <Card style={styles.themedCard}>
+              {/* *** START CHANGE: Updated Modal Title *** */}
+              <Card.Title titleStyle={styles.themedText} title={isEditingMembership ? "Edit User Membership" : `User Details: ${selectedUser.name}`} />
+              {/* *** END CHANGE *** */}
               <Card.Content>
-                <Text>Name: {selectedUser.name}</Text>
-                <Text>Email: {selectedUser.email}</Text>
-                <Text style={styles.pickerLabel}>Membership Type:</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={modalMembershipType}
-                    onValueChange={(itemValue) => setModalMembershipType(itemValue)}
-                  >
-                    {memberships.map((membership) => (
-                      <Picker.Item key={membership.id} label={membership.name} value={membership.id} />
-                    ))}
-                  </Picker>
-                </View>
+                <Text style={styles.themedText}>Name: {selectedUser.name}</Text>
+                <Text style={styles.themedText}>Email: {selectedUser.email}</Text>
+                
+                {/* Display Current Membership or Editing Picker */}
+                {!isEditingMembership ? (
+                  <Text style={[styles.themedText, { marginTop: 10 }]}>
+                    Membership Type: <Text style={{ fontWeight: 'bold' }}>
+                      {memberships.find(m => m.id === selectedUser.membershipType)?.name || 'No Membership'}
+                    </Text>
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={[styles.themedText, localStyles.pickerLabel]}>Select New Membership Type:</Text>
+                    <View style={localStyles.pickerContainer}>
+                      <Picker
+                        selectedValue={modalMembershipType}
+                        onValueChange={(itemValue) => setModalMembershipType(itemValue)}
+                        // Picker styling needs to be handled via itemStyle or a wrapper for theme awareness
+                      >
+                        {memberships.map((membership) => (
+                          <Picker.Item key={membership.id} label={membership.name} value={membership.id} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </>
+                )}
+                
+                <Divider style={{ marginVertical: 15 }} />
+
                 <View style={styles.modalButtons}>
-                  <Button onPress={hideUserModal} mode="outlined" style={{ marginRight: 10 }}>Cancel</Button>
-                  <Button onPress={handleSaveUser} mode="contained">Save</Button>
+                  {!isEditingMembership ? (
+                    <>
+                      {/* Action Buttons */}
+                      <Button 
+                        onPress={() => showClassesModal(selectedUser)} 
+                        mode="outlined" 
+                        icon="calendar"
+                        style={{ flex: 1, marginRight: 10 }}
+                      >
+                        Classes
+                      </Button>
+                      <Button 
+                        onPress={() => setIsEditingMembership(true)} 
+                        mode="contained" 
+                        icon="pencil"
+                        style={{ flex: 1, marginRight: 10, backgroundColor: currentThemeColors.tint }}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        onPress={() => handleDeleteUserWrapper(selectedUser)} 
+                        mode="contained" 
+                        icon="trash-can"
+                        style={{ flex: 1, backgroundColor: 'red' }}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Save/Cancel for Editing Membership */}
+                      <Button onPress={() => setIsEditingMembership(false)} mode="outlined" style={{ marginRight: 10 }}>
+                        Cancel
+                      </Button>
+                      <Button onPress={handleSaveUser} mode="contained" style={{ backgroundColor: currentThemeColors.tint }}>
+                        Save Membership
+                      </Button>
+                    </>
+                  )}
                 </View>
+
+                {/* Always show a simple close button if not in editing mode */}
+                {!isEditingMembership && (
+                  <View style={[styles.modalButtons, { marginTop: 10 }]}>
+                    <Button onPress={hideUserModal} mode="text">Close</Button>
+                  </View>
+                )}
+
               </Card.Content>
             </Card>
           )}
         </Modal>
       </Portal>
 
-      {/* Classes Modal (omitted for brevity) */}
+      {/* Classes Modal (Remains the same) */}
       <Portal>
         <Modal
           visible={isClassesModalVisible}
           onDismiss={hideClassesModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           {selectedUser && (
-            <Card>
-              <Card.Title title={`Classes for ${selectedUser.name}`} />
+            <Card style={styles.themedCard}>
+              <Card.Title titleStyle={styles.themedText} title={`Classes for ${selectedUser.name}`} />
               <Card.Content>
                 {userClasses.length > 0 ? (
                   <DataTable>
                     <DataTable.Header>
-                      <DataTable.Title>Date</DataTable.Title>
-                      <DataTable.Title>Time</DataTable.Title>
-                      <DataTable.Title>Name</DataTable.Title>
+                      <DataTable.Title textStyle={styles.themedText}>Date</DataTable.Title>
+                      <DataTable.Title textStyle={styles.themedText}>Time</DataTable.Title>
+                      <DataTable.Title textStyle={styles.themedText}>Name</DataTable.Title>
                     </DataTable.Header>
                     {userClasses.map((classItem) => (
                       <DataTable.Row key={classItem.id}>
-                        <DataTable.Cell>{classItem.day}</DataTable.Cell>
-                        <DataTable.Cell>{classItem.time}</DataTable.Cell>
-                        <DataTable.Cell>{classItem.name}</DataTable.Cell>
+                        <DataTable.Cell textStyle={styles.themedText}>{classItem.day}</DataTable.Cell>
+                        <DataTable.Cell textStyle={styles.themedText}>{classItem.time}</DataTable.Cell>
+                        <DataTable.Cell textStyle={styles.themedText}>{classItem.name}</DataTable.Cell>
                       </DataTable.Row>
                     ))}
                   </DataTable>
                 ) : (
-                  <Text>This user has no checked-in classes.</Text>
+                  <Text style={styles.themedText}>This user has no checked-in classes.</Text>
                 )}
                 <View style={styles.modalButtons}>
                   <Button onPress={hideClassesModal} mode="outlined">Close</Button>
@@ -480,15 +564,15 @@ export default function UserManagement({ onBack }: UserManagementProps) {
         </Modal>
       </Portal>
 
-      {/* Share Summary Modal <-- NEW MODAL */}
+      {/* Share Summary Modal (Remains the same) */}
       <Portal>
         <Modal
           visible={isShareModalVisible}
           onDismiss={hideShareModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
-          <Card>
-            <Card.Title title="Share Class Summary" />
+          <Card style={styles.themedCard}>
+            <Card.Title titleStyle={styles.themedText} title="Share Class Summary" />
             <Card.Content>
               <TextInput
                 label="Start Date (YYYY-MM-DD)"
@@ -506,7 +590,7 @@ export default function UserManagement({ onBack }: UserManagementProps) {
               />
               <View style={styles.modalButtons}>
                 <Button onPress={hideShareModal} mode="outlined" style={{ marginRight: 10 }} disabled={isSharing}>Cancel</Button>
-                <Button onPress={handleGenerateAndShareSummary} mode="contained" disabled={isSharing}>
+                <Button onPress={handleGenerateAndShareSummary} mode="contained" disabled={isSharing} style={{ backgroundColor: currentThemeColors.tint }}>
                   {isSharing ? 'Generating...' : 'Share CSV'}
                 </Button>
               </View>
@@ -518,24 +602,8 @@ export default function UserManagement({ onBack }: UserManagementProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 20,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
-    maxHeight: '80%',
-  },
+// Local styles for unique layout rules
+const localStyles = StyleSheet.create({
   pickerLabel: {
     marginTop: 15,
     marginBottom: 5,
@@ -546,20 +614,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-  },
-  actionCell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  backButton: {
-    marginBottom: 10,
-  },
-  input: {
-    marginBottom: 10,
-  },
+  shareButton: { 
+    marginBottom: 15 
+  }
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
 import { useState, useEffect } from 'react';
 import {
   collection,
@@ -14,6 +14,10 @@ import { Card, DataTable, Text, Button, Modal, Portal, TextInput } from 'react-n
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import { db } from '../../FirebaseConfig';
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light;
+const styles = getThemedStyles(currentThemeColors);
 
 interface NotificationManagementProps {
   onBack: () => void;
@@ -107,14 +111,14 @@ export default function NotificationManagement({ onBack }: NotificationManagemen
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
 
       {/* New Notification Section */}
-      <Card style={styles.card}>
-        <Card.Title title="Send New Notification" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Send New Notification" />
         <Card.Content>
           <TextInput
             label="Title"
@@ -129,27 +133,28 @@ export default function NotificationManagement({ onBack }: NotificationManagemen
             style={styles.input}
             multiline
           />
-          <Button onPress={handleCreateNotification} mode="contained" style={styles.sendButton}>
+          <Button onPress={handleCreateNotification} mode="contained" style={[localStyles.sendButton, { backgroundColor: currentThemeColors.tint }]}>
             Send
           </Button>
         </Card.Content>
       </Card>
 
       {/* Notification History Section */}
-      <Card style={styles.card}>
-        <Card.Title title="Notification History" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Notification History" />
         <Card.Content>
           <DataTable>
             <DataTable.Header>
-              <DataTable.Title>Title</DataTable.Title>
-              <DataTable.Title>Date</DataTable.Title>
-              <DataTable.Title style={{ justifyContent: 'flex-end' }}>Action</DataTable.Title>
+              <DataTable.Title textStyle={styles.themedText}>Title</DataTable.Title>
+              <DataTable.Title textStyle={styles.themedText}>Date</DataTable.Title>
+              <DataTable.Title style={{ justifyContent: 'flex-end' }} textStyle={styles.themedText}>Action</DataTable.Title>
             </DataTable.Header>
             {notifications.map((notif) => (
               <DataTable.Row key={notif.id}>
-                <TouchableOpacity onPress={() => showHistoryModal(notif)} style={styles.rowClickable}>
-                  <DataTable.Cell style={styles.cellWithTouch}>{notif.title}</DataTable.Cell>
-                  <DataTable.Cell style={styles.cellWithTouch}>{notif.createdAt.toDate().toLocaleDateString()}</DataTable.Cell>
+                {/* Use a single touchable element to encompass the cells for navigation */}
+                <TouchableOpacity onPress={() => showHistoryModal(notif)} style={localStyles.rowClickable}>
+                  <DataTable.Cell style={localStyles.cellWithTouch} textStyle={styles.themedText}>{notif.title}</DataTable.Cell>
+                  <DataTable.Cell style={localStyles.cellWithTouch} textStyle={styles.themedText}>{notif.createdAt.toDate().toLocaleDateString()}</DataTable.Cell>
                 </TouchableOpacity>
                 <DataTable.Cell style={styles.actionCell}>
                   <TouchableOpacity onPress={() => handleDeleteNotification(notif.id)}>
@@ -167,15 +172,15 @@ export default function NotificationManagement({ onBack }: NotificationManagemen
         <Modal
           visible={isHistoryModalVisible}
           onDismiss={hideHistoryModal}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.themedModalContent}
         >
           {selectedNotification && (
-            <Card>
-              <Card.Title title={selectedNotification.title} />
+            <Card style={styles.themedCard}>
+              <Card.Title titleStyle={styles.themedText} title={selectedNotification.title} />
               <Card.Content>
-                <Text>Date: {selectedNotification.createdAt.toDate().toLocaleDateString()}</Text>
-                <Text style={styles.modalBody}>{selectedNotification.body}</Text>
-                <Button onPress={hideHistoryModal} mode="contained">Close</Button>
+                <Text style={styles.themedText}>Date: {selectedNotification.createdAt.toDate().toLocaleDateString()}</Text>
+                <Text style={[styles.themedText, localStyles.modalBody]}>{selectedNotification.body}</Text>
+                <Button onPress={hideHistoryModal} mode="contained" style={{ backgroundColor: currentThemeColors.tint }}>Close</Button>
               </Card.Content>
             </Card>
           )}
@@ -185,37 +190,10 @@ export default function NotificationManagement({ onBack }: NotificationManagemen
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    width: '100%',
-    padding: 10,
-    marginBottom: 20,
-  },
-  input: {
-    marginBottom: 10,
-  },
+// Local styles for unique layout rules
+const localStyles = StyleSheet.create({
   sendButton: {
     marginTop: 10,
-  },
-  actionCell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    width: 'auto',
-  },
-  backButton: {
-    marginBottom: 10,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 10,
   },
   modalBody: {
     marginTop: 15,

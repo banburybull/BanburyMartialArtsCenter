@@ -1,51 +1,44 @@
-import { StyleSheet, View, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Card, Text, Button, TextInput } from 'react-native-paper';
 import { getAuth, updateProfile, updateEmail, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; // Import Firestore functions
+import { doc, setDoc } from 'firebase/firestore'; 
 import { auth, db } from '../../FirebaseConfig';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-// Import the useUser hook
 import { useUser } from '../../context/userContext'; 
+import { getThemedStyles, AppColorsExport } from '../../constants/GlobalStyles';
+
+const currentThemeColors = useColorScheme() === 'dark' ? AppColorsExport.dark : AppColorsExport.light; 
+const styles = getThemedStyles(currentThemeColors);
 
 interface MemberDetailsProps {
   onBack: () => void;
 }
 
 export default function MemberDetails({ onBack }: MemberDetailsProps) {
-  // Destructure the necessary refresh function
   const { displayName: contextDisplayName, refreshUserData } = useUser(); 
   
   const [displayName, setDisplayName] = useState(contextDisplayName || '');
   const [email, setEmail] = useState(auth.currentUser?.email || '');
 
   useEffect(() => {
-    // Sync local state with context/auth display name
-    // This ensures that if the name changes elsewhere (or on initial load), the input updates
     setDisplayName(contextDisplayName || auth.currentUser?.displayName || '');
-    // Ensure email is correctly initialized from auth
     setEmail(auth.currentUser?.email || '');
   }, [contextDisplayName]); 
 
   const handleUpdateProfile = async () => {
     if (!auth.currentUser) return;
 
-    // Check if the name actually changed
     if (displayName === auth.currentUser.displayName || displayName === contextDisplayName) {
         Alert.alert('Info', 'Display name is already the same.');
         return;
     }
 
     try {
-      // 1. Update Firebase Auth Profile (Necessary for local user object)
       await updateProfile(auth.currentUser, { displayName: displayName });
-
-      // 2. Update Firestore 'users' document (Source of truth for context)
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
       await setDoc(userDocRef, { displayName: displayName }, { merge: true });
-
-      // 3. Trigger context refresh
       refreshUserData(); 
 
       Alert.alert('Success', 'Display name updated successfully!');
@@ -58,8 +51,6 @@ export default function MemberDetails({ onBack }: MemberDetailsProps) {
   const handleChangeEmail = async () => {
     if (!auth.currentUser) return;
     try {
-      // Note: Firebase requires re-authentication for sensitive operations like email change.
-      // This is often why the API call fails.
       await updateEmail(auth.currentUser, email);
       Alert.alert('Success', 'Email updated successfully! Please verify your new email.');
     } catch (error) {
@@ -83,12 +74,12 @@ export default function MemberDetails({ onBack }: MemberDetailsProps) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.themedContainer}>
       <Button onPress={onBack} mode="outlined" style={styles.backButton}>
-        <FontAwesome name="arrow-left" size={16} /> Back
+        <FontAwesome name="arrow-left" size={16} color={currentThemeColors.text} /> Back
       </Button>
-      <Card style={styles.card}>
-        <Card.Title title="Update Profile" />
+      <Card style={styles.themedCard}>
+        <Card.Title titleStyle={styles.themedText} title="Update Profile" />
         <Card.Content>
           <TextInput
             label="Display Name"
@@ -117,24 +108,3 @@ export default function MemberDetails({ onBack }: MemberDetailsProps) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    marginBottom: 20,
-    padding: 10,
-  },
-  input: {
-    marginBottom: 10,
-  },
-  button: {
-    marginBottom: 10,
-  },
-  backButton: {
-    marginBottom: 10,
-  },
-});
